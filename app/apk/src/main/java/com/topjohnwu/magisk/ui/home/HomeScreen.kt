@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ import top.yukonga.miuix.kmp.icon.extended.Update
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import com.topjohnwu.magisk.R
 import com.topjohnwu.magisk.core.R as CoreR
 import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.utils.TextHolder
@@ -264,10 +266,10 @@ private fun MagiskCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = MiuixIcons.Download,
+                Image(
+                    painter = painterResource(id = CoreR.drawable.ic_magisk_outline),
                     contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
+                    colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.primary),
                     modifier = Modifier.size(48.dp)
                 )
 
@@ -460,10 +462,10 @@ private fun ManagerCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = MiuixIcons.Download,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_manager),
                     contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
+                    colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.primary),
                     modifier = Modifier.size(40.dp)
                 )
 
