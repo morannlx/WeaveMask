@@ -1,50 +1,13 @@
 package com.topjohnwu.magisk.ui.theme
 
 import com.topjohnwu.magisk.R
-import com.topjohnwu.magisk.core.Config
 
-enum class Theme(
-    val themeName: String,
-    val themeRes: Int
-) {
-
-    Piplup(
-        themeName = "Piplup",
-        themeRes = R.style.ThemeFoundationMD2_Piplup
-    ),
-    PiplupAmoled(
-        themeName = "AMOLED",
-        themeRes = R.style.ThemeFoundationMD2_Amoled
-    ),
-    Rayquaza(
-        themeName = "Rayquaza",
-        themeRes = R.style.ThemeFoundationMD2_Rayquaza
-    ),
-    Zapdos(
-        themeName = "Zapdos",
-        themeRes = R.style.ThemeFoundationMD2_Zapdos
-    ),
-    Charmeleon(
-        themeName = "Charmeleon",
-        themeRes = R.style.ThemeFoundationMD2_Charmeleon
-    ),
-    Mew(
-        themeName = "Mew",
-        themeRes = R.style.ThemeFoundationMD2_Mew
-    ),
-    Salamence(
-        themeName = "Salamence",
-        themeRes = R.style.ThemeFoundationMD2_Salamence
-    ),
-    Fraxure(
-        themeName = "Fraxure (Legacy)",
-        themeRes = R.style.ThemeFoundationMD2_Fraxure
-    );
-
-    val isSelected get() = Config.themeOrdinal == ordinal
-
-    companion object {
-        val selected get() = values().getOrNull(Config.themeOrdinal) ?: Piplup
-    }
-
+/**
+ * 基础 XML 主题定义
+ * 仅用于 AppCompatActivity 启动时所需的 XML 基础主题
+ * 实际 Compose UI 颜色由 WeaveMagiskTheme + Miuix ThemeController 控制
+ */
+object Theme {
+    /** 默认基础主题资源 */
+    val themeRes: Int = R.style.ThemeFoundationMD2_Piplup
 }

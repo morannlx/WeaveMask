@@ -41,6 +41,8 @@ object Config : PreferenceConfig, DBConfig {
         const val DOWNLOAD_DIR = "download_dir"
         const val SAFETY = "safety_notice"
         const val THEME_ORDINAL = "theme_ordinal"
+        const val COLOR_MODE = "color_mode"
+        const val KEY_COLOR = "key_color"
         const val ASKED_HOME = "asked_home"
         const val DOH = "doh"
         const val RAND_NAME = "rand_name"
@@ -107,6 +109,8 @@ object Config : PreferenceConfig, DBConfig {
     var safetyNotice by preference(Key.SAFETY, true)
     var darkTheme by preference(Key.DARK_THEME, -1)
     var themeOrdinal by preference(Key.THEME_ORDINAL, 0)
+    var colorMode by preference(Key.COLOR_MODE, 0)
+    var keyColor by preference(Key.KEY_COLOR, 0)
 
     private var checkUpdatePrefs by preference(Key.CHECK_UPDATES, true)
     private var localePrefs by preference(Key.LOCALE, "")

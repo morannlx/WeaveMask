@@ -3,8 +3,8 @@ package com.topjohnwu.magisk.ui
 import android.Manifest
 import android.Manifest.permission.REQUEST_INSTALL_PACKAGES
 import android.annotation.SuppressLint
+import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
-import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -13,9 +13,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.lifecycle.lifecycleScope
 import com.topjohnwu.magisk.arch.BaseViewModel
@@ -83,11 +89,6 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     /** 设置 ViewModel */
     private val settingsViewModel: SettingsViewModel by viewModels { VMFactory }
 
-    init {
-        // 设置深色模式
-        AppCompatDelegate.setDefaultNightMode(Config.darkTheme)
-    }
-
     /**
      * Activity 创建时的生命周期回调
      * 设置主题并初始化启动画面控制器
@@ -95,7 +96,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
      * @param savedInstanceState 保存的实例状态
      */
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(Theme.selected.themeRes)
+        setTheme(Theme.themeRes)
         splashController.preOnCreate()
         super.onCreate(savedInstanceState)
         splashController.onCreate(savedInstanceState)
@@ -118,31 +119,57 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
      */
     @SuppressLint("InlinedApi")
     override fun onCreateUi(savedInstanceState: Bundle?) {
-        // 启用 Edge-to-Edge，使内容绘制到状态栏和导航栏区域
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-            Configuration.UI_MODE_NIGHT_YES
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            ) { isDark },
-            navigationBarStyle = SystemBarStyle.auto(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            ) { isDark },
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
-
         // 设置 Compose 内容
         setContent {
+            var colorMode by remember { mutableIntStateOf(Config.colorMode) }
+            var keyColorInt by remember { mutableIntStateOf(Config.keyColor) }
+            val keyColor = remember(keyColorInt) {
+                if (keyColorInt == 0) null else Color(keyColorInt)
+            }
+
+            val darkMode = when (colorMode) {
+                2, 5 -> true
+                0, 3 -> isSystemInDarkTheme()
+                else -> false
+            }
+
+            // 启用 Edge-to-Edge，根据主题模式设置状态栏/导航栏样式
+            DisposableEffect(darkMode) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT
+                    ) { darkMode },
+                    navigationBarStyle = SystemBarStyle.auto(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT
+                    ) { darkMode },
+                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    window.isNavigationBarContrastEnforced = false
+                }
+
+                // 监听 Config 变化实时更新主题
+                val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                    when (key) {
+                        Config.Key.COLOR_MODE -> colorMode = Config.colorMode
+                        Config.Key.KEY_COLOR -> keyColorInt = Config.keyColor
+                    }
+                }
+                Config.prefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose {
+                    Config.prefs.unregisterOnSharedPreferenceChangeListener(listener)
+                }
+            }
+
             MainScreen(
                 homeViewModel = homeViewModel,
                 moduleViewModel = moduleViewModel,
                 superuserViewModel = superuserViewModel,
                 logViewModel = logViewModel,
                 settingsViewModel = settingsViewModel,
+                colorMode = colorMode,
+                keyColor = keyColor,
                 modifier = Modifier.fillMaxSize()
             )
         }

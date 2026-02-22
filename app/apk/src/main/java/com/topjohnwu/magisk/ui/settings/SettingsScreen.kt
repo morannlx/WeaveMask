@@ -5,6 +5,7 @@ import android.content.res.Resources
 import android.os.Build
 import android.view.View
 import android.widget.FrameLayout
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -52,12 +53,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.ShortcutManagerCompat
 import com.topjohnwu.magisk.core.BuildConfig
+import com.topjohnwu.magisk.core.Config
 import com.topjohnwu.magisk.core.Const
 import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.isRunningAsStub
@@ -179,9 +182,20 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // 主题
-                    SuperArrow(
-                        title = stringResource(CoreR.string.section_theme),
+                    // 主题模式
+                    val themeItems = listOf(
+                        stringResource(CoreR.string.settings_theme_mode_system),
+                        stringResource(CoreR.string.settings_theme_mode_light),
+                        stringResource(CoreR.string.settings_theme_mode_dark),
+                        stringResource(CoreR.string.settings_theme_mode_monet_system),
+                        stringResource(CoreR.string.settings_theme_mode_monet_light),
+                        stringResource(CoreR.string.settings_theme_mode_monet_dark),
+                    )
+                    var themeMode by remember { mutableIntStateOf(Config.colorMode) }
+                    SuperDropdown(
+                        title = stringResource(CoreR.string.settings_theme),
+                        summary = stringResource(CoreR.string.settings_theme_summary),
+                        items = themeItems,
                         startAction = {
                             Icon(
                                 Icons.Rounded.Palette,
@@ -190,12 +204,77 @@ fun SettingsScreen(
                                 tint = colorScheme.onBackground
                             )
                         },
-                        onClick = {
-                            viewModel.onItemPressed(dummyView, Theme) {
-                                viewModel.onItemAction(dummyView, Theme)
-                            }
+                        selectedIndex = themeMode,
+                        onSelectedIndexChange = { index ->
+                            Config.colorMode = index
+                            themeMode = index
                         }
                     )
+
+                    // 种子色（仅 Monet 模式下显示）
+                    AnimatedVisibility(
+                        visible = themeMode in 3..5
+                    ) {
+                        val colorItems = listOf(
+                            stringResource(CoreR.string.settings_key_color_default),
+                            stringResource(CoreR.string.color_red),
+                            stringResource(CoreR.string.color_pink),
+                            stringResource(CoreR.string.color_purple),
+                            stringResource(CoreR.string.color_deep_purple),
+                            stringResource(CoreR.string.color_indigo),
+                            stringResource(CoreR.string.color_blue),
+                            stringResource(CoreR.string.color_cyan),
+                            stringResource(CoreR.string.color_teal),
+                            stringResource(CoreR.string.color_green),
+                            stringResource(CoreR.string.color_yellow),
+                            stringResource(CoreR.string.color_amber),
+                            stringResource(CoreR.string.color_orange),
+                            stringResource(CoreR.string.color_brown),
+                            stringResource(CoreR.string.color_blue_grey),
+                            stringResource(CoreR.string.color_sakura),
+                        )
+                        val colorValues = listOf(
+                            0,
+                            Color(0xFFF44336).toArgb(),
+                            Color(0xFFE91E63).toArgb(),
+                            Color(0xFF9C27B0).toArgb(),
+                            Color(0xFF673AB7).toArgb(),
+                            Color(0xFF3F51B5).toArgb(),
+                            Color(0xFF2196F3).toArgb(),
+                            Color(0xFF00BCD4).toArgb(),
+                            Color(0xFF009688).toArgb(),
+                            Color(0xFF4FAF50).toArgb(),
+                            Color(0xFFFFEB3B).toArgb(),
+                            Color(0xFFFFC107).toArgb(),
+                            Color(0xFFFF9800).toArgb(),
+                            Color(0xFF795548).toArgb(),
+                            Color(0xFF607D8F).toArgb(),
+                            Color(0xFFFF9CA8).toArgb(),
+                        )
+                        var keyColorIndex by remember {
+                            mutableIntStateOf(
+                                colorValues.indexOf(Config.keyColor).takeIf { it >= 0 } ?: 0
+                            )
+                        }
+                        SuperDropdown(
+                            title = stringResource(CoreR.string.settings_key_color),
+                            summary = stringResource(CoreR.string.settings_key_color_summary),
+                            items = colorItems,
+                            startAction = {
+                                Icon(
+                                    Icons.Rounded.Palette,
+                                    modifier = Modifier.padding(end = 6.dp),
+                                    contentDescription = null,
+                                    tint = colorScheme.onBackground
+                                )
+                            },
+                            selectedIndex = keyColorIndex,
+                            onSelectedIndexChange = { index ->
+                                Config.keyColor = colorValues[index]
+                                keyColorIndex = index
+                            }
+                        )
+                    }
 
                     // 语言
                     if (useLocaleManager) {

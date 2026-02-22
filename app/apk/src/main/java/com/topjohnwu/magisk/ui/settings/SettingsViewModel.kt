@@ -49,7 +49,7 @@ class SettingsViewModel : BaseViewModel(), BaseSettingsItem.Handler {
         // Customization
         list.addAll(listOf(
             Customization,
-            Theme, if (LocaleSetting.useLocaleManager) LanguageSystem else Language
+            if (LocaleSetting.useLocaleManager) LanguageSystem else Language
         ))
         if (isRunningAsStub && ShortcutManagerCompat.isRequestPinShortcutSupported(context))
             list.add(AddShortcut)
@@ -110,7 +110,6 @@ class SettingsViewModel : BaseViewModel(), BaseSettingsItem.Handler {
     override fun onItemAction(view: View, item: BaseSettingsItem) {
         when (item) {
             Logs -> onNavigateToLog?.invoke()
-            Theme -> SettingsFragmentDirections.actionSettingsFragmentToThemeFragment().navigate()
             LanguageSystem -> view.activity.startActivity(LocaleSetting.localeSettingsIntent)
             AddShortcut -> AddHomeIconEvent().publish()
             SystemlessHosts -> createHosts()

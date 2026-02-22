@@ -42,9 +42,8 @@ import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Settings
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.ThemeController
+import com.topjohnwu.magisk.ui.theme.WeaveMagiskTheme
 
 /**
  * 主屏幕路由定义
@@ -96,6 +95,8 @@ data class BottomNavItem(
  * @param superuserViewModel 超级用户 ViewModel
  * @param logViewModel 日志 ViewModel
  * @param settingsViewModel 设置 ViewModel
+ * @param colorMode 颜色模式 (0-5)
+ * @param keyColor Monet 种子色，null 表示使用壁纸色
  * @param modifier Modifier
  */
 @Composable
@@ -105,12 +106,13 @@ fun MainScreen(
     superuserViewModel: SuperuserViewModel,
     logViewModel: LogViewModel,
     settingsViewModel: SettingsViewModel,
+    colorMode: Int = 0,
+    keyColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
-    val themeController = remember { ThemeController(ColorSchemeMode.System) }
 
-    MiuixTheme(controller = themeController) {
+    WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {
         val hazeState = remember { HazeState() }
         val hazeStyle = HazeStyle(
             backgroundColor = MiuixTheme.colorScheme.surface,
