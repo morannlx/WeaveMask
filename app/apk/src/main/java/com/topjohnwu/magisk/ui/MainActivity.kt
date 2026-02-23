@@ -5,8 +5,11 @@ import android.Manifest.permission.REQUEST_INSTALL_PACKAGES
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -23,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.topjohnwu.magisk.arch.BaseViewModel
 import com.topjohnwu.magisk.arch.VMFactory
@@ -97,12 +102,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(Theme.themeRes)
-        // 在 setContent 之前就启用 edge-to-edge，确保首帧时 WindowInsets 已正确生效，
-        // 避免底部导航栏因 inset 延迟而产生跳动
-        enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
+        applySystemBarStyle(resolveDarkMode(Config.colorMode))
         splashController.preOnCreate()
         super.onCreate(savedInstanceState)
         splashController.onCreate(savedInstanceState)
@@ -139,23 +139,12 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                 else -> false
             }
 
-            // 启用 Edge-to-Edge，根据主题模式设置状态栏/导航栏样式
             DisposableEffect(darkMode) {
-                enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(
-                        android.graphics.Color.TRANSPARENT,
-                        android.graphics.Color.TRANSPARENT
-                    ) { darkMode },
-                    navigationBarStyle = SystemBarStyle.auto(
-                        android.graphics.Color.TRANSPARENT,
-                        android.graphics.Color.TRANSPARENT
-                    ) { darkMode },
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    window.isNavigationBarContrastEnforced = false
-                }
+                updateSystemBarAppearance(darkMode)
+                onDispose {}
+            }
 
-                // 监听 Config 变化实时更新主题
+            DisposableEffect(Unit) {
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                     when (key) {
                         Config.Key.COLOR_MODE -> colorMode = Config.colorMode
@@ -179,6 +168,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                 modifier = Modifier.fillMaxSize()
             )
         }
+        installSplashUiReadyObserver()
 
         // 显示不支持的消息对话框
         showUnsupportedMessage()
@@ -194,6 +184,75 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
 
         // 开始观察 LiveData
         startObserveLiveData()
+    }
+
+    private fun installSplashUiReadyObserver() {
+        val contentView = findViewById<ViewGroup>(android.R.id.content) ?: return
+        val rootView = contentView.getChildAt(0) ?: contentView
+        var handled = false
+
+        fun markUiReady() {
+            if (handled) return
+            handled = true
+            splashController.notifyUiReady()
+            ViewCompat.setOnApplyWindowInsetsListener(rootView, null)
+        }
+
+        if (ViewCompat.getRootWindowInsets(rootView) != null) {
+            markUiReady()
+            return
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { _: View, insets ->
+            markUiReady()
+            insets
+        }
+
+        rootView.post {
+            if (!handled && ViewCompat.getRootWindowInsets(rootView) != null) {
+                markUiReady()
+            }
+        }
+        rootView.postDelayed({
+            if (!handled) {
+                markUiReady()
+            }
+        }, 500)
+    }
+
+    private fun applySystemBarStyle(darkMode: Boolean) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ) { darkMode },
+            navigationBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ) { darkMode }
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        updateSystemBarAppearance(darkMode)
+    }
+
+    private fun updateSystemBarAppearance(darkMode: Boolean) {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        val useLightBars = !darkMode
+        controller.isAppearanceLightStatusBars = useLightBars
+        controller.isAppearanceLightNavigationBars = useLightBars
+    }
+
+    private fun resolveDarkMode(colorMode: Int): Boolean {
+        return when (colorMode) {
+            2, 5 -> true
+            0, 3 -> {
+                val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                nightMode == Configuration.UI_MODE_NIGHT_YES
+            }
+            else -> false
+        }
     }
 
     /**

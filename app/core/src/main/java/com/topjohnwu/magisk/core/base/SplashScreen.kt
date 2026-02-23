@@ -42,6 +42,11 @@ class SplashController<T>(private val activity: T)
     }
 
     private var shouldCreateUiOnResume = false
+    private var uiReady = splashShown
+
+    fun notifyUiReady() {
+        uiReady = true
+    }
 
     fun preOnCreate() {
         if (isRunningAsStub && !splashShown) {
@@ -53,7 +58,7 @@ class SplashController<T>(private val activity: T)
     fun onCreate(savedInstanceState: Bundle?) {
         if (!isRunningAsStub) {
             val splashScreen = activity.installSplashScreen()
-            splashScreen.setKeepOnScreenCondition { !splashShown }
+            splashScreen.setKeepOnScreenCondition { !splashShown || !uiReady }
         }
 
         if (splashShown) {
