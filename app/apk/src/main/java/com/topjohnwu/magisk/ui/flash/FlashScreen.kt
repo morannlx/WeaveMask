@@ -110,7 +110,7 @@ fun FlashScreen(
                 actions = {
                     IconButton(
                         modifier = Modifier.padding(end = 16.dp),
-                        onClick = { viewModel.saveLog() }
+                        onClick = { viewModel.saveLogForCompose(context) }
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Save,

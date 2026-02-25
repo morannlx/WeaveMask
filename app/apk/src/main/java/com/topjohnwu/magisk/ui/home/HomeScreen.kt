@@ -76,6 +76,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     bottomPadding: Dp,
     onNavigateToInstall: () -> Unit,
+    onNavigateToUninstall: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -151,7 +152,7 @@ fun HomeScreen(
             if (Info.env.isActive) {
                 item {
                     UninstallButton(
-                        onPressed = { viewModel.onDeletePressed() }
+                        onPressed = onNavigateToUninstall
                     )
                 }
             }

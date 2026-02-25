@@ -478,6 +478,11 @@ private fun MainTabScreen(
                     bottomPadding = bottomPadding,
                     onNavigateToInstall = {
                         navController.navigate(Screen.Install.route)
+                    },
+                    onNavigateToUninstall = {
+                        navController.navigate(
+                            Screen.Flash.createRoute(Const.Value.UNINSTALL, null)
+                        )
                     }
                 )
                 1 -> SuperuserScreen(
@@ -486,7 +491,12 @@ private fun MainTabScreen(
                 )
                 2 -> ModuleScreen(
                     viewModel = moduleViewModel,
-                    bottomPadding = bottomPadding
+                    bottomPadding = bottomPadding,
+                    onInstallModuleFromLocal = { uri ->
+                        navController.navigate(
+                            Screen.Flash.createRoute(Const.Value.FLASH_ZIP, uri)
+                        )
+                    }
                 )
                 3 -> SettingsScreen(
                     viewModel = settingsViewModel,

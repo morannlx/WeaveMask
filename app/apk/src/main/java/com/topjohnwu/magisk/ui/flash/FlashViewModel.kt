@@ -1,6 +1,8 @@
 package com.topjohnwu.magisk.ui.flash
 
+import android.content.Context
 import android.view.MenuItem
+import android.widget.Toast
 import androidx.databinding.Bindable
 import androidx.databinding.ObservableArrayList
 import androidx.lifecycle.LiveData
@@ -15,6 +17,7 @@ import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.ktx.reboot
 import com.topjohnwu.magisk.core.ktx.synchronized
 import com.topjohnwu.magisk.core.ktx.timeFormatStandard
+import com.topjohnwu.magisk.core.ktx.toast
 import com.topjohnwu.magisk.core.ktx.toTime
 import com.topjohnwu.magisk.core.tasks.FlashZip
 import com.topjohnwu.magisk.core.tasks.MagiskInstaller
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FlashViewModel : BaseViewModel() {
 
@@ -132,6 +136,36 @@ class FlashViewModel : BaseViewModel() {
                 }
             }
             SnackbarEvent(file.toString()).publish()
+        }
+    }
+
+    fun saveLogForCompose(context: Context) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = "magisk_install_log_%s.log".format(
+                        System.currentTimeMillis().toTime(timeFormatStandard)
+                    )
+                    val file = MediaStoreUtils.getFile(name)
+                    file.uri.outputStream().bufferedWriter().use { writer ->
+                        synchronized(logItems) {
+                            logItems.forEach {
+                                writer.write(it)
+                                writer.newLine()
+                            }
+                        }
+                    }
+                    file.toString()
+                }
+            }
+
+            result
+                .onSuccess { savedPath ->
+                    context.toast(savedPath, Toast.LENGTH_LONG)
+                }
+                .onFailure { error ->
+                    context.toast(error.message ?: "保存日志失败", Toast.LENGTH_LONG)
+                }
         }
     }
 

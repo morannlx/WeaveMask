@@ -290,7 +290,13 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
         viewModel.viewEvents.observe(this, this::onEventDispatched)
         installViewModel.viewEvents.observe(this, this::onEventDispatched)
         flashViewModel.viewEvents.observe(this, this::onEventDispatched)
-        Info.isConnected.observe(this, viewModel::onNetworkChanged)
+        Info.isConnected.observe(this) { connected ->
+            viewModel.onNetworkChanged(connected)
+            moduleViewModel.onNetworkChanged(connected)
+            homeViewModel.onNetworkChanged(connected)
+            logViewModel.onNetworkChanged(connected)
+            superuserViewModel.onNetworkChanged(connected)
+        }
     }
 
     /**

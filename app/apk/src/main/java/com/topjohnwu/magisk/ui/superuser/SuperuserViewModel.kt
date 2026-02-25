@@ -26,10 +26,24 @@ import com.topjohnwu.magisk.events.AuthEvent
 import com.topjohnwu.magisk.events.SnackbarEvent
 import com.topjohnwu.magisk.utils.asText
 import com.topjohnwu.magisk.view.TextItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+
+data class SuperuserUiState(
+    val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
+    val query: String = "",
+    val showSystemApps: Boolean = true,
+    val policies: List<PolicyRvItem> = emptyList(),
+    val errorMessage: String? = null
+)
 
 class SuperuserViewModel(
     private val db: PolicyDao
@@ -51,57 +65,154 @@ class SuperuserViewModel(
     var loading = true
         private set(value) = set(value, field, { field = it }, BR.loading)
 
+    private val _uiState = MutableStateFlow(SuperuserUiState())
+    val uiState: StateFlow<SuperuserUiState> = _uiState.asStateFlow()
+
+    private var allPolicies: List<PolicyRvItem> = emptyList()
+
+    fun setQuery(query: String) {
+        _uiState.update { it.copy(query = query) }
+        publishFilteredPolicies()
+    }
+
+    fun toggleShowSystemApps() {
+        _uiState.update { it.copy(showSystemApps = !it.showSystemApps) }
+        publishFilteredPolicies()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            loadPolicies(isInitialLoad = false)
+        }
+    }
+
     @SuppressLint("InlinedApi")
     override suspend fun doLoadWork() {
+        loadPolicies(isInitialLoad = true)
+    }
+
+    @SuppressLint("InlinedApi")
+    private suspend fun loadPolicies(isInitialLoad: Boolean) {
         if (!Info.showSuperUser) {
             loading = false
+            itemsPolicies.update(emptyList())
+            itemsHelpers.clear()
+            if (itemsHelpers.isEmpty()) {
+                itemsHelpers.add(itemNoData)
+            }
+            allPolicies = emptyList()
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    policies = emptyList(),
+                    errorMessage = null
+                )
+            }
             return
         }
-        loading = true
-        withContext(Dispatchers.IO) {
-            db.deleteOutdated()
-            db.delete(AppContext.applicationInfo.uid)
-            val policies = ArrayList<PolicyRvItem>()
-            val pm = AppContext.packageManager
-            for (policy in db.fetchAll()) {
-                val pkgs =
-                    if (policy.uid == Process.SYSTEM_UID) arrayOf("android")
-                    else pm.getPackagesForUid(policy.uid)
-                if (pkgs == null) {
-                    db.delete(policy.uid)
-                    continue
-                }
-                val map = pkgs.mapNotNull { pkg ->
-                    try {
-                        val info = pm.getPackageInfo(pkg, MATCH_UNINSTALLED_PACKAGES)
-                        PolicyRvItem(
-                            this@SuperuserViewModel, policy,
-                            info.packageName,
-                            info.sharedUserId != null,
-                            info.applicationInfo?.loadIcon(pm) ?: pm.defaultActivityIcon,
-                            info.applicationInfo?.getLabel(pm) ?: info.packageName
-                        )
-                    } catch (e: PackageManager.NameNotFoundException) {
-                        null
-                    }
-                }
-                if (map.isEmpty()) {
-                    db.delete(policy.uid)
-                    continue
-                }
-                policies.addAll(map)
-            }
-            policies.sortWith(compareBy(
-                { it.appName.lowercase(Locale.ROOT) },
-                { it.packageName }
-            ))
-            itemsPolicies.update(policies)
+
+        if (isInitialLoad) {
+            loading = true
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        } else {
+            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
         }
-        if (itemsPolicies.isNotEmpty())
+
+        try {
+            val policies = withContext(Dispatchers.IO) {
+                db.deleteOutdated()
+                db.delete(AppContext.applicationInfo.uid)
+                val newPolicies = ArrayList<PolicyRvItem>()
+                val pm = AppContext.packageManager
+                for (policy in db.fetchAll()) {
+                    val pkgs =
+                        if (policy.uid == Process.SYSTEM_UID) arrayOf("android")
+                        else pm.getPackagesForUid(policy.uid)
+                    if (pkgs == null) {
+                        db.delete(policy.uid)
+                        continue
+                    }
+                    val map = pkgs.mapNotNull { pkg ->
+                        try {
+                            val info = pm.getPackageInfo(pkg, MATCH_UNINSTALLED_PACKAGES)
+                            PolicyRvItem(
+                                this@SuperuserViewModel,
+                                policy,
+                                info.packageName,
+                                info.sharedUserId != null,
+                                info.applicationInfo?.loadIcon(pm) ?: pm.defaultActivityIcon,
+                                info.applicationInfo?.getLabel(pm) ?: info.packageName
+                            )
+                        } catch (e: PackageManager.NameNotFoundException) {
+                            null
+                        }
+                    }
+                    if (map.isEmpty()) {
+                        db.delete(policy.uid)
+                        continue
+                    }
+                    newPolicies.addAll(map)
+                }
+                newPolicies.sortedWith(
+                    compareBy(
+                        { it.appName.lowercase(Locale.ROOT) },
+                        { it.packageName }
+                    )
+                )
+            }
+
+            allPolicies = policies
+            itemsPolicies.update(policies)
+            if (policies.isNotEmpty()) {
+                itemsHelpers.clear()
+            } else if (itemsHelpers.isEmpty()) {
+                itemsHelpers.add(itemNoData)
+            }
+            publishFilteredPolicies(errorMessage = null)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            itemsPolicies.update(emptyList())
             itemsHelpers.clear()
-        else if (itemsHelpers.isEmpty())
-            itemsHelpers.add(itemNoData)
-        loading = false
+            if (itemsHelpers.isEmpty()) {
+                itemsHelpers.add(itemNoData)
+            }
+            allPolicies = emptyList()
+            _uiState.update {
+                it.copy(
+                    policies = emptyList(),
+                    errorMessage = e.message
+                )
+            }
+        } finally {
+            loading = false
+            _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
+        }
+    }
+
+    private fun publishFilteredPolicies(errorMessage: String? = _uiState.value.errorMessage) {
+        val state = _uiState.value
+        val query = state.query.trim()
+        val base = if (state.showSystemApps) {
+            allPolicies
+        } else {
+            allPolicies.filter { it.item.uid >= Process.FIRST_APPLICATION_UID }
+        }
+        val filtered = if (query.isEmpty()) {
+            base
+        } else {
+            base.filter {
+                it.appName.contains(query, ignoreCase = true) ||
+                    it.packageName.contains(query, ignoreCase = true)
+            }
+        }
+        _uiState.update {
+            it.copy(
+                policies = filtered,
+                errorMessage = errorMessage
+            )
+        }
     }
 
     // ---

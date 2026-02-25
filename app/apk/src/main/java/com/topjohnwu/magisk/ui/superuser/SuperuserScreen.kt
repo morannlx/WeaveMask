@@ -4,9 +4,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import android.os.Process
 import top.yukonga.miuix.kmp.basic.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -27,12 +35,23 @@ import com.topjohnwu.magisk.core.R as CoreR
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
+import top.yukonga.miuix.kmp.extra.SuperListPopup
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -51,14 +70,23 @@ fun SuperuserScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
+    var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    val showTopPopup = remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
     val hazeState = remember { HazeState() }
     val hazeStyle = HazeStyle(
         backgroundColor = MiuixTheme.colorScheme.surface,
         tint = HazeTint(MiuixTheme.colorScheme.surface.copy(0.8f))
     )
 
-    val loading = viewModel.loading
-    val policies = viewModel.itemsPolicies
+    LaunchedEffect(hasStartedLoading) {
+        if (!hasStartedLoading) {
+            hasStartedLoading = true
+            viewModel.startLoading()
+        }
+    }
 
     MiuixTheme {
         Scaffold(
@@ -71,29 +99,96 @@ fun SuperuserScreen(
                         noiseFactor = 0f
                     },
                     color = Color.Transparent,
-                    title = context.getString(CoreR.string.superuser)
+                    title = context.getString(CoreR.string.superuser),
+                    actions = {
+                        SuperListPopup(
+                            show = showTopPopup,
+                            popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
+                            alignment = PopupPositionProvider.Align.TopEnd,
+                            onDismissRequest = {
+                                showTopPopup.value = false
+                            }
+                        ) {
+                            ListPopupColumn {
+                                DropdownImpl(
+                                    text = if (uiState.showSystemApps) "隐藏系统应用" else "显示系统应用",
+                                    isSelected = uiState.showSystemApps,
+                                    optionSize = 1,
+                                    onSelectedIndexChange = {
+                                        viewModel.toggleShowSystemApps()
+                                        showTopPopup.value = false
+                                    },
+                                    index = 0
+                                )
+                            }
+                        }
+                        IconButton(
+                            modifier = Modifier.padding(end = 16.dp),
+                            onClick = {
+                                showTopPopup.value = true
+                            },
+                            holdDownState = showTopPopup.value
+                        ) {
+                            Icon(
+                                imageVector = MiuixIcons.MoreCircle,
+                                contentDescription = null
+                            )
+                        }
+                    }
                 )
             },
             content = { paddingValues ->
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .hazeSource(state = hazeState)
                         .padding(paddingValues)
                 ) {
+                    SearchBar(
+                        inputField = {
+                            InputField(
+                                query = uiState.query,
+                                onQueryChange = viewModel::setQuery,
+                                onSearch = { },
+                                expanded = searchExpanded,
+                                onExpandedChange = { searchExpanded = it },
+                                label = "搜索应用"
+                            )
+                        },
+                        onExpandedChange = { searchExpanded = it },
+                        expanded = searchExpanded
+                    ) {
+                    }
+
+                    HorizontalDivider(
+                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                        thickness = 1.dp
+                    )
+
                     when {
-                        loading -> {
+                        uiState.isLoading && uiState.policies.isEmpty() -> {
                             LoadingContent()
                         }
-                        policies.isEmpty() -> {
-                            EmptyContent()
-                        }
                         else -> {
-                            PolicyList(
-                                policies = policies,
-                                viewModel = viewModel,
-                                bottomPadding = bottomPadding
-                            )
+                            PullToRefresh(
+                                isRefreshing = uiState.isRefreshing,
+                                pullToRefreshState = pullToRefreshState,
+                                onRefresh = {
+                                    if (!uiState.isRefreshing) {
+                                        viewModel.refresh()
+                                    }
+                                }
+                            ) {
+                                if (uiState.policies.isEmpty()) {
+                                    EmptyContent()
+                                } else {
+                                    PolicyList(
+                                        policies = uiState.policies,
+                                        viewModel = viewModel,
+                                        bottomPadding = bottomPadding
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -203,6 +298,7 @@ private fun PolicyItem(
     val appName = item.appName
     val packageName = item.packageName
     val isEnabled = item.isEnabled
+    val uid = item.item.uid
 
     val cardAlpha = if (isEnabled) 1f else 0.5f
 
@@ -221,14 +317,12 @@ private fun PolicyItem(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                item.icon?.let { drawable ->
-                    androidx.compose.foundation.Image(
-                        bitmap = drawable.toBitmap().asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
+                androidx.compose.foundation.Image(
+                    bitmap = item.icon.toBitmap().asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(
                     modifier = Modifier.weight(1f)
@@ -250,6 +344,14 @@ private fun PolicyItem(
                         color = MiuixTheme.colorScheme.onSurfaceContainer,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = policyTagText(uid),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.primary
                     )
                 }
 
@@ -340,5 +442,14 @@ private fun PolicyItem(
                 Text(text = context.getString(CoreR.string.su_revoke_title))
             }
         }
+    }
+}
+
+private fun policyTagText(uid: Int): String {
+    return when {
+        uid == 0 -> "ROOT"
+        uid == Process.SYSTEM_UID -> "SYSTEM"
+        uid < Process.FIRST_APPLICATION_UID -> "CUSTOM"
+        else -> "USER"
     }
 }

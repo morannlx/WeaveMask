@@ -1,13 +1,26 @@
 package com.topjohnwu.magisk.ui.module
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -25,13 +38,32 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import com.topjohnwu.magisk.core.R as CoreR
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
+import top.yukonga.miuix.kmp.extra.SuperListPopup
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.IOException
 
 /**
  * 模块列表页面
@@ -45,14 +77,67 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun ModuleScreen(
     viewModel: ModuleViewModel,
     bottomPadding: Dp,
+    onInstallModuleFromLocal: (Uri) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+    var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    val showTopPopup = remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
+    val localModulePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            scope.launch {
+                val copied = runCatching {
+                    runCatching {
+                        context.contentResolver.takePersistableUriPermission(
+                            it,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        )
+                    }
+                    withContext(Dispatchers.IO) {
+                        val cacheDir = File(context.cacheDir, "module_install").apply { mkdirs() }
+                        val target = File(cacheDir, "install_${System.currentTimeMillis()}.zip")
+                        val input = context.contentResolver.openInputStream(it)
+                            ?: throw IOException("无法读取所选文件")
+                        input.use { source ->
+                            target.outputStream().use { sink ->
+                                source.copyTo(sink)
+                            }
+                        }
+                        target.toUri()
+                    }
+                }
+                copied
+                    .onSuccess { localUri ->
+                        onInstallModuleFromLocal(localUri)
+                    }
+                    .onFailure { error ->
+                        Toast.makeText(
+                            context,
+                            error.message ?: "读取模块文件失败",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+            }
+        }
+    }
     val hazeState = remember { HazeState() }
     val hazeStyle = HazeStyle(
         backgroundColor = MiuixTheme.colorScheme.surface,
         tint = HazeTint(MiuixTheme.colorScheme.surface.copy(0.8f))
     )
+
+    LaunchedEffect(hasStartedLoading) {
+        if (!hasStartedLoading) {
+            hasStartedLoading = true
+            viewModel.startLoading()
+        }
+    }
 
     MiuixTheme {
         Scaffold(
@@ -65,62 +150,133 @@ fun ModuleScreen(
                         noiseFactor = 0f
                     },
                     color = Color.Transparent,
-                    title = context.getString(CoreR.string.modules)
+                    title = context.getString(CoreR.string.modules),
+                    actions = {
+                        SuperListPopup(
+                            show = showTopPopup,
+                            popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
+                            alignment = PopupPositionProvider.Align.TopEnd,
+                            onDismissRequest = {
+                                showTopPopup.value = false
+                            }
+                        ) {
+                            ListPopupColumn {
+                                DropdownImpl(
+                                    text = "按名称排序",
+                                    isSelected = uiState.sortMode == ModuleSortMode.NAME,
+                                    optionSize = 3,
+                                    onSelectedIndexChange = {
+                                        viewModel.setSortMode(ModuleSortMode.NAME)
+                                        showTopPopup.value = false
+                                    },
+                                    index = 0
+                                )
+                                DropdownImpl(
+                                    text = "已启用优先",
+                                    isSelected = uiState.sortMode == ModuleSortMode.ENABLED_FIRST,
+                                    optionSize = 3,
+                                    onSelectedIndexChange = {
+                                        viewModel.setSortMode(ModuleSortMode.ENABLED_FIRST)
+                                        showTopPopup.value = false
+                                    },
+                                    index = 1
+                                )
+                                DropdownImpl(
+                                    text = "可更新优先",
+                                    isSelected = uiState.sortMode == ModuleSortMode.UPDATE_FIRST,
+                                    optionSize = 3,
+                                    onSelectedIndexChange = {
+                                        viewModel.setSortMode(ModuleSortMode.UPDATE_FIRST)
+                                        showTopPopup.value = false
+                                    },
+                                    index = 2
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            modifier = Modifier.padding(end = 16.dp),
+                            onClick = {
+                                showTopPopup.value = true
+                            },
+                            holdDownState = showTopPopup.value
+                        ) {
+                            Icon(
+                                imageVector = MiuixIcons.MoreCircle,
+                                contentDescription = null
+                            )
+                        }
+                    }
                 )
             },
             content = { paddingValues ->
-                ModuleListContent(
-                    viewModel = viewModel,
-                    paddingValues = paddingValues,
-                    bottomPadding = bottomPadding,
-                    hazeState = hazeState
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(state = hazeState)
+                        .padding(paddingValues)
+                ) {
+                    SearchBar(
+                        inputField = {
+                            InputField(
+                                query = uiState.query,
+                                onQueryChange = viewModel::setQuery,
+                                onSearch = { },
+                                expanded = searchExpanded,
+                                onExpandedChange = { searchExpanded = it },
+                                label = "搜索模块"
+                            )
+                        },
+                        onExpandedChange = { searchExpanded = it },
+                        expanded = searchExpanded
+                    ) {
+                    }
+
+                    HorizontalDivider(
+                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                        thickness = 1.dp
+                    )
+
+                    when {
+                        uiState.isLoading && uiState.modules.isEmpty() -> {
+                            LoadingContent()
+                        }
+                        else -> {
+                            PullToRefresh(
+                                isRefreshing = uiState.isRefreshing,
+                                pullToRefreshState = pullToRefreshState,
+                                onRefresh = {
+                                    if (!uiState.isRefreshing) {
+                                        viewModel.refresh()
+                                    }
+                                }
+                            ) {
+                                if (uiState.modules.isEmpty()) {
+                                    EmptyContent(
+                                        onInstallPressed = {
+                                            localModulePicker.launch(
+                                                arrayOf("application/zip", "application/octet-stream")
+                                            )
+                                        }
+                                    )
+                                } else {
+                                    ModuleList(
+                                        viewModel = viewModel,
+                                        items = uiState.modules,
+                                        onInstallPressed = {
+                                            localModulePicker.launch(
+                                                arrayOf("application/zip", "application/octet-stream")
+                                            )
+                                        },
+                                        bottomPadding = bottomPadding
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         )
-    }
-}
-
-/**
- * 模块列表内容区域
- * 处理加载状态、空状态和列表显示
- *
- * @param viewModel 模块 ViewModel
- * @param paddingValues 内边距
- * @param bottomPadding 底部内边距
- * @param hazeState Haze 状态
- */
-@Composable
-private fun ModuleListContent(
-    viewModel: ModuleViewModel,
-    paddingValues: PaddingValues,
-    bottomPadding: Dp,
-    hazeState: HazeState
-) {
-    val context = LocalContext.current
-    val items = viewModel.items
-    val loading = viewModel.loading
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .hazeSource(state = hazeState)
-            .padding(paddingValues)
-    ) {
-        when {
-            loading -> {
-                LoadingContent()
-            }
-            items.size <= 1 -> {
-                EmptyContent()
-            }
-            else -> {
-                ModuleList(
-                    viewModel = viewModel,
-                    items = items,
-                    bottomPadding = bottomPadding
-                )
-            }
-        }
     }
 }
 
@@ -152,12 +308,19 @@ private fun LoadingContent() {
  * 空状态显示
  */
 @Composable
-private fun EmptyContent() {
+private fun EmptyContent(
+    onInstallPressed: () -> Unit
+) {
     val context = LocalContext.current
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
+        InstallModuleEntryButton(onClick = onInstallPressed)
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = context.getString(CoreR.string.module_empty),
             style = MiuixTheme.textStyles.title3,
@@ -177,7 +340,8 @@ private fun EmptyContent() {
 @Composable
 private fun ModuleList(
     viewModel: ModuleViewModel,
-    items: List<Any>,
+    items: List<LocalModuleRvItem>,
+    onInstallPressed: () -> Unit,
     bottomPadding: Dp
 ) {
     LazyColumn(
@@ -188,27 +352,45 @@ private fun ModuleList(
     ) {
         item { Spacer(modifier = Modifier.height(8.dp)) }
 
+        item {
+            InstallModuleEntryButton(onClick = onInstallPressed)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         items(
-            items = items.filter { it !is InstallModule },
-            key = { (it as? LocalModuleRvItem)?.item?.id?.hashCode() ?: it.hashCode() }
+            items = items,
+            key = { it.item.id }
         ) { item ->
-            when (item) {
-                is LocalModuleRvItem -> {
-                    ModuleItem(
-                        item = item,
-                        viewModel = viewModel
-                    )
-                }
-                is InstallModule -> {
-                    // Install module button - not implemented in this version
-                }
-            }
+            ModuleItem(
+                item = item,
+                viewModel = viewModel
+            )
         }
 
         // 底部间距 - 使用传入的 bottomPadding 确保最后一个卡片内容可以正常显示
         item {
             Spacer(modifier = Modifier.height(bottomPadding))
         }
+    }
+}
+
+@Composable
+private fun InstallModuleEntryButton(
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors()
+    ) {
+        Icon(
+            imageVector = MiuixIcons.Download,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = context.getString(CoreR.string.module_action_install_external))
     }
 }
 

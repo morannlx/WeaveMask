@@ -68,8 +68,12 @@ open class FlashZip(
             } else {
                 true
             }
-        } catch (e: IOException) {
+        } catch (e: Throwable) {
             Timber.e(e)
+            val message = e.message
+            if (!message.isNullOrBlank()) {
+                console.add("! $message")
+            }
             false
         } finally {
             Shell.cmd("cd /", "rm -rf $installDir ${Const.TMPDIR}").submit()
