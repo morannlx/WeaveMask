@@ -89,6 +89,7 @@ import com.topjohnwu.magisk.ui.settings.SettingsScreen
 import com.topjohnwu.magisk.ui.settings.SettingsViewModel
 import com.topjohnwu.magisk.ui.superuser.SuperuserScreen
 import com.topjohnwu.magisk.ui.superuser.SuperuserViewModel
+import com.topjohnwu.magisk.ui.deny.DenyListScreen
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -371,6 +372,18 @@ fun MainScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
+
+            composable(
+                Screen.Deny.route,
+                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
+                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
+            ) {
+                DenyListScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
@@ -532,6 +545,9 @@ private fun MainTabScreen(
                     onNavigateToAppLanguage = {
                         onCurrentTabChanged(3)
                         navController.navigate(Screen.AppLanguage.route)
+                    },
+                    onNavigateToDenyListConfig = {
+                        navController.navigate(Screen.Deny.route)
                     }
                 )
             }

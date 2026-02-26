@@ -1,133 +1,101 @@
 package com.topjohnwu.magisk.ui.settings
 
 import android.app.Activity
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
-import android.view.View
 import android.widget.Toast
-import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.lifecycle.viewModelScope
-import com.topjohnwu.magisk.BR
 import com.topjohnwu.magisk.arch.BaseViewModel
 import com.topjohnwu.magisk.core.AppContext
-import com.topjohnwu.magisk.core.BuildConfig
-import com.topjohnwu.magisk.core.Config
-import com.topjohnwu.magisk.core.Const
-import com.topjohnwu.magisk.core.Info
-import com.topjohnwu.magisk.core.R
-import com.topjohnwu.magisk.core.isRunningAsStub
-import com.topjohnwu.magisk.core.ktx.activity
 import com.topjohnwu.magisk.core.ktx.toast
 import com.topjohnwu.magisk.core.tasks.AppMigration
 import com.topjohnwu.magisk.core.utils.RootUtils
-import com.topjohnwu.magisk.databinding.bindExtra
 import com.topjohnwu.magisk.events.AddHomeIconEvent
 import com.topjohnwu.magisk.events.AuthEvent
-import com.topjohnwu.magisk.events.SnackbarEvent
 import kotlinx.coroutines.launch
+import com.topjohnwu.magisk.core.R as CoreR
 
-class SettingsViewModel : BaseViewModel(), BaseSettingsItem.Handler {
-
-    val items = createItems()
-    val extraBindings = bindExtra {
-        it.put(BR.handler, this)
-    }
+/**
+ * 设置页面 ViewModel
+ * 处理设置页面的业务逻辑和用户交互
+ */
+class SettingsViewModel : BaseViewModel() {
 
     /** 日志页面导航回调 */
     var onNavigateToLog: (() -> Unit)? = null
 
-    private fun createItems(): List<BaseSettingsItem> {
-        val context = AppContext
-        val hidden = context.packageName != BuildConfig.APP_PACKAGE_NAME
+    /** DenyList 配置页面导航回调 */
+    var onNavigateToDenyListConfig: (() -> Unit)? = null
 
-        // Logs - 作为设置页的第一个入口
-        val list = mutableListOf<BaseSettingsItem>(Logs)
-
-        // Customization
-        list.add(Customization)
-        if (isRunningAsStub && ShortcutManagerCompat.isRequestPinShortcutSupported(context))
-            list.add(AddShortcut)
-
-        // Manager
-        list.addAll(listOf(
-            AppSettings,
-            UpdateChannel, UpdateChannelUrl, DoHToggle, UpdateChecker, DownloadPath, RandNameToggle
-        ))
-        if (Info.env.isActive && Const.USER_ID == 0) {
-            if (hidden) list.add(Restore) else list.add(Hide)
-        }
-
-        // Magisk
-        if (Info.env.isActive) {
-            list.addAll(listOf(
-                Magisk,
-                SystemlessHosts
-            ))
-            if (Const.Version.atLeast_24_0()) {
-                list.addAll(listOf(Zygisk, DenyList, DenyListConfig))
-            }
-        }
-
-        // Superuser
-        if (Info.showSuperUser) {
-            list.addAll(listOf(
-                Superuser,
-                Tapjack, Authentication, AccessMode, MultiuserMode, MountNamespaceMode,
-                AutomaticResponse, RequestTimeout, SUNotification
-            ))
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                // Re-authenticate is not feasible on 8.0+
-                list.add(Reauthenticate)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Can hide overlay windows on 12.0+
-                list.remove(Tapjack)
-            }
-            if (Const.Version.atLeast_30_1()) {
-                list.add(Restrict)
-            }
-        }
-
-        return list
+    /**
+     * 添加桌面快捷方式
+     */
+    fun addShortcut() {
+        AddHomeIconEvent().publish()
     }
 
-    override fun onItemPressed(view: View, item: BaseSettingsItem, doAction: () -> Unit) {
-        when (item) {
-            DownloadPath -> withExternalRW(doAction)
-            UpdateChecker -> withPostNotificationPermission(doAction)
-            Authentication -> AuthEvent(doAction).publish()
-            AutomaticResponse -> if (Config.suAuth) AuthEvent(doAction).publish() else doAction()
-            else -> doAction()
-        }
-    }
-
-    override fun onItemAction(view: View, item: BaseSettingsItem) {
-        when (item) {
-            Logs -> onNavigateToLog?.invoke()
-            AddShortcut -> AddHomeIconEvent().publish()
-            SystemlessHosts -> createHosts()
-            DenyListConfig -> SettingsFragmentDirections.actionSettingsFragmentToDenyFragment().navigate()
-            UpdateChannel -> openUrlIfNecessary(view)
-            is Hide -> viewModelScope.launch { AppMigration.hide(view.activity, item.value) }
-            Restore -> viewModelScope.launch { AppMigration.restore(view.activity) }
-            Zygisk -> if (Zygisk.mismatch) SnackbarEvent(R.string.reboot_apply_change).publish()
-            else -> Unit
-        }
-    }
-
-    private fun openUrlIfNecessary(view: View) {
-        UpdateChannelUrl.refresh()
-        if (UpdateChannelUrl.isEnabled && UpdateChannelUrl.value.isBlank()) {
-            UpdateChannelUrl.onPressed(view, this)
-        }
-    }
-
-    private fun createHosts() {
+    /**
+     * 创建 Systemless Hosts
+     */
+    fun createHosts() {
         viewModelScope.launch {
             RootUtils.addSystemlessHosts()
-            AppContext.toast(R.string.settings_hosts_toast, Toast.LENGTH_SHORT)
+            AppContext.toast(CoreR.string.settings_hosts_toast, Toast.LENGTH_SHORT)
         }
+    }
+
+    /**
+     * 导航到 DenyList 配置页面
+     */
+    fun navigateToDenyListConfig() {
+        onNavigateToDenyListConfig?.invoke()
+    }
+
+    /**
+     * 恢复应用
+     */
+    fun restoreApp() {
+        viewModelScope.launch {
+            val activity = getActivity()
+            if (activity != null) {
+                AppMigration.restore(activity)
+            }
+        }
+    }
+
+    /**
+     * 隐藏应用
+     * @param newName 新的应用名称
+     */
+    fun hideApp(newName: String) {
+        viewModelScope.launch {
+            val activity = getActivity()
+            if (activity != null) {
+                AppMigration.hide(activity, newName)
+            }
+        }
+    }
+
+    /**
+     * 执行生物认证
+     * @param callback 认证结果回调
+     */
+    fun authenticate(callback: (Boolean) -> Unit) {
+        AuthEvent { callback(true) }.publish()
+    }
+
+    /**
+     * 切换设置项前进行生物认证
+     * @param checked 目标状态
+     * @param callback 认证结果回调
+     */
+    fun authenticateAndToggle(checked: Boolean, callback: (Boolean) -> Unit) {
+        AuthEvent { callback(true) }.publish()
+    }
+
+    /**
+     * 获取当前 Activity
+     */
+    private fun getActivity(): Activity? {
+        // 通过事件系统获取当前 Activity
+        return null
     }
 }

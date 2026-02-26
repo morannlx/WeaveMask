@@ -1,10 +1,9 @@
 package com.topjohnwu.magisk.ui.settings
 
-import android.content.Context
+import android.app.Activity
 import android.content.res.Resources
 import android.os.Build
-import android.view.View
-import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -49,7 +48,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -65,7 +66,18 @@ import com.topjohnwu.magisk.core.Config
 import com.topjohnwu.magisk.core.Const
 import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.isRunningAsStub
+import com.topjohnwu.magisk.core.ktx.toast
+import com.topjohnwu.magisk.core.tasks.AppMigration
 import com.topjohnwu.magisk.core.utils.LocaleSetting
+import com.topjohnwu.magisk.core.utils.MediaStoreUtils
+import com.topjohnwu.magisk.view.MagiskDialog
+import com.topjohnwu.superuser.Shell
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -75,15 +87,9 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperDropdown
 import top.yukonga.miuix.kmp.extra.SuperSwitch
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import com.topjohnwu.magisk.core.R as CoreR
 
 /**
@@ -93,6 +99,8 @@ import com.topjohnwu.magisk.core.R as CoreR
  * @param viewModel 设置 ViewModel
  * @param bottomPadding 底部内边距，用于避免内容被底部导航栏遮挡
  * @param onNavigateToLog 导航到日志页面的回调
+ * @param onNavigateToAppLanguage 导航到应用语言页面的回调
+ * @param onNavigateToDenyListConfig 导航到 DenyList 配置页面的回调
  * @param modifier Modifier
  */
 @Composable
@@ -101,20 +109,22 @@ fun SettingsScreen(
     bottomPadding: Dp,
     onNavigateToLog: () -> Unit,
     onNavigateToAppLanguage: () -> Unit,
+    onNavigateToDenyListConfig: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val activity = context as Activity
     val res = context.resources
-    val dummyView = remember { createDummyView(context) }
     val scrollBehavior = MiuixScrollBehavior()
     val hazeState = remember { HazeState() }
     val hazeStyle = HazeStyle(
-        backgroundColor = MiuixTheme.colorScheme.surface,
-        tint = HazeTint(MiuixTheme.colorScheme.surface.copy(0.8f))
+        backgroundColor = colorScheme.surface,
+        tint = HazeTint(colorScheme.surface.copy(0.8f))
     )
 
-    LaunchedEffect(onNavigateToLog) {
+    LaunchedEffect(onNavigateToLog, onNavigateToDenyListConfig) {
         viewModel.onNavigateToLog = onNavigateToLog
+        viewModel.onNavigateToDenyListConfig = onNavigateToDenyListConfig
     }
 
     // 预先计算条件可见性
@@ -128,6 +138,7 @@ fun SettingsScreen(
     val showTapjack = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
     val showReauthenticate = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
     val showRestrict = Const.Version.atLeast_30_1()
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -142,7 +153,8 @@ fun SettingsScreen(
                 scrollBehavior = scrollBehavior
             )
         },
-        popupHost = { }
+        popupHost = { },
+        contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -172,11 +184,7 @@ fun SettingsScreen(
                                 tint = colorScheme.onBackground
                             )
                         },
-                        onClick = {
-                            viewModel.onItemPressed(dummyView, Logs) {
-                                viewModel.onItemAction(dummyView, Logs)
-                            }
-                        }
+                        onClick = { viewModel.onNavigateToLog?.invoke() }
                     )
                 }
             }
@@ -196,7 +204,7 @@ fun SettingsScreen(
                         stringResource(CoreR.string.settings_theme_mode_monet_light),
                         stringResource(CoreR.string.settings_theme_mode_monet_dark),
                     )
-                    var themeMode by remember { mutableIntStateOf(Config.colorMode) }
+                    var themeMode by rememberSaveable { mutableIntStateOf(Config.colorMode) }
                     SuperDropdown(
                         title = stringResource(CoreR.string.settings_theme),
                         summary = stringResource(CoreR.string.settings_theme_summary),
@@ -217,9 +225,7 @@ fun SettingsScreen(
                     )
 
                     // 种子色（仅 Monet 模式下显示）
-                    AnimatedVisibility(
-                        visible = themeMode in 3..5
-                    ) {
+                    AnimatedVisibility(visible = themeMode in 3..5) {
                         val colorItems = listOf(
                             stringResource(CoreR.string.settings_key_color_default),
                             stringResource(CoreR.string.color_red),
@@ -256,7 +262,7 @@ fun SettingsScreen(
                             Color(0xFF607D8F).toArgb(),
                             Color(0xFFFF9CA8).toArgb(),
                         )
-                        var keyColorIndex by remember {
+                        var keyColorIndex by rememberSaveable {
                             mutableIntStateOf(
                                 colorValues.indexOf(Config.keyColor).takeIf { it >= 0 } ?: 0
                             )
@@ -309,11 +315,7 @@ fun SettingsScreen(
                                     tint = colorScheme.onBackground
                                 )
                             },
-                            onClick = {
-                                viewModel.onItemPressed(dummyView, AddShortcut) {
-                                    viewModel.onItemAction(dummyView, AddShortcut)
-                                }
-                            }
+                            onClick = { viewModel.addShortcut() }
                         )
                     }
                 }
@@ -326,19 +328,17 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // 更新通道
-                    UpdateChannelSelectorItem(
-                        res = res,
-                        dummyView = dummyView,
-                        viewModel = viewModel
-                    )
+                    UpdateChannelSelectorItem(res = res)
 
                     // 自定义更新通道 URL
-                    UpdateChannelUrl.refresh()
-                    if (UpdateChannelUrl.isEnabled) {
+                    val showCustomChannel = remember { mutableStateOf(UpdateChannelUrl.isEnabled()) }
+                    LaunchedEffect(Unit) {
+                        showCustomChannel.value = UpdateChannelUrl.isEnabled()
+                    }
+                    if (showCustomChannel.value) {
                         SuperArrow(
                             title = stringResource(CoreR.string.settings_update_custom),
-                            summary = UpdateChannelUrl.description.getText(res).toString()
-                                .takeIf { it.isNotEmpty() },
+                            summary = UpdateChannelUrl.getDescription(res),
                             startAction = {
                                 Icon(
                                     Icons.Rounded.Link,
@@ -347,19 +347,19 @@ fun SettingsScreen(
                                     tint = colorScheme.onBackground
                                 )
                             },
-                            onClick = {
-                                UpdateChannelUrl.onPressed(dummyView, viewModel)
-                            }
+                            onClick = { UpdateChannelUrl.showDialog(activity, viewModel) }
                         )
                     }
 
                     // DNS over HTTPS
+                    var dohEnabled by rememberSaveable { mutableStateOf(Config.doh) }
                     SuperSwitch(
                         title = stringResource(CoreR.string.settings_doh_title),
                         summary = stringResource(CoreR.string.settings_doh_description),
-                        checked = DoHToggle.isChecked,
+                        checked = dohEnabled,
                         onCheckedChange = {
-                            DoHToggle.onToggle(dummyView, viewModel, it)
+                            Config.doh = it
+                            dohEnabled = it
                         },
                         startAction = {
                             Icon(
@@ -368,17 +368,18 @@ fun SettingsScreen(
                                 contentDescription = null,
                                 tint = colorScheme.onBackground
                             )
-                        },
-                        enabled = DoHToggle.isEnabled
+                        }
                     )
 
                     // 检查更新
+                    var checkUpdateEnabled by rememberSaveable { mutableStateOf(Config.checkUpdate) }
                     SuperSwitch(
                         title = stringResource(CoreR.string.settings_check_update_title),
                         summary = stringResource(CoreR.string.settings_check_update_summary),
-                        checked = UpdateChecker.isChecked,
+                        checked = checkUpdateEnabled,
                         onCheckedChange = {
-                            UpdateChecker.onToggle(dummyView, viewModel, it)
+                            Config.checkUpdate = it
+                            checkUpdateEnabled = it
                         },
                         startAction = {
                             Icon(
@@ -387,15 +388,13 @@ fun SettingsScreen(
                                 contentDescription = null,
                                 tint = colorScheme.onBackground
                             )
-                        },
-                        enabled = UpdateChecker.isEnabled
+                        }
                     )
 
                     // 下载路径
                     SuperArrow(
                         title = stringResource(CoreR.string.settings_download_path_title),
-                        summary = DownloadPath.description.getText(res).toString()
-                            .takeIf { it.isNotEmpty() },
+                        summary = MediaStoreUtils.fullPath(Config.downloadDir).takeIf { it.isNotEmpty() },
                         startAction = {
                             Icon(
                                 Icons.Rounded.FolderOpen,
@@ -404,19 +403,18 @@ fun SettingsScreen(
                                 tint = colorScheme.onBackground
                             )
                         },
-                        onClick = {
-                            DownloadPath.onPressed(dummyView, viewModel)
-                        },
-                        enabled = DownloadPath.isEnabled
+                        onClick = { DownloadPath.showDialog(activity, viewModel) }
                     )
 
                     // 随机文件名
+                    var randNameEnabled by rememberSaveable { mutableStateOf(Config.randName) }
                     SuperSwitch(
                         title = stringResource(CoreR.string.settings_random_name_title),
                         summary = stringResource(CoreR.string.settings_random_name_description),
-                        checked = RandNameToggle.isChecked,
+                        checked = randNameEnabled,
                         onCheckedChange = {
-                            RandNameToggle.onToggle(dummyView, viewModel, it)
+                            Config.randName = it
+                            randNameEnabled = it
                         },
                         startAction = {
                             Icon(
@@ -425,8 +423,7 @@ fun SettingsScreen(
                                 contentDescription = null,
                                 tint = colorScheme.onBackground
                             )
-                        },
-                        enabled = RandNameToggle.isEnabled
+                        }
                     )
 
                     // 隐藏/恢复 Magisk app
@@ -443,9 +440,7 @@ fun SettingsScreen(
                                         tint = colorScheme.onBackground
                                     )
                                 },
-                                onClick = {
-                                    Restore.onPressed(dummyView, viewModel)
-                                }
+                                onClick = { viewModel.restoreApp() }
                             )
                         } else {
                             SuperArrow(
@@ -459,9 +454,7 @@ fun SettingsScreen(
                                         tint = colorScheme.onBackground
                                     )
                                 },
-                                onClick = {
-                                    Hide.onPressed(dummyView, viewModel)
-                                }
+                                onClick = { Hide.showDialog(activity, viewModel) }
                             )
                         }
                     }
@@ -487,22 +480,20 @@ fun SettingsScreen(
                                     tint = colorScheme.onBackground
                                 )
                             },
-                            onClick = {
-                                viewModel.onItemPressed(dummyView, SystemlessHosts) {
-                                    viewModel.onItemAction(dummyView, SystemlessHosts)
-                                }
-                            }
+                            onClick = { viewModel.createHosts() }
                         )
 
                         if (showZygisk) {
                             // Zygisk
+                            var zygiskEnabled by rememberSaveable { mutableStateOf(Config.zygisk) }
+                            val zygiskMismatch = zygiskEnabled != Info.isZygiskEnabled
                             SuperSwitch(
                                 title = stringResource(CoreR.string.zygisk),
-                                summary = Zygisk.description.getText(res).toString()
-                                    .takeIf { it.isNotEmpty() },
-                                checked = Zygisk.isChecked,
+                                summary = if (zygiskMismatch) stringResource(CoreR.string.reboot_apply_change) else stringResource(CoreR.string.settings_zygisk_summary),
+                                checked = zygiskEnabled,
                                 onCheckedChange = {
-                                    Zygisk.onToggle(dummyView, viewModel, it)
+                                    Config.zygisk = it
+                                    zygiskEnabled = it
                                 },
                                 startAction = {
                                     Icon(
@@ -515,12 +506,19 @@ fun SettingsScreen(
                             )
 
                             // DenyList
+                            var denyListEnabled by rememberSaveable { mutableStateOf(Config.denyList) }
                             SuperSwitch(
                                 title = stringResource(CoreR.string.settings_denylist_title),
                                 summary = stringResource(CoreR.string.settings_denylist_summary),
-                                checked = DenyList.isChecked,
-                                onCheckedChange = {
-                                    DenyList.onToggle(dummyView, viewModel, it)
+                                checked = denyListEnabled,
+                                onCheckedChange = { checked ->
+                                    val cmd = if (checked) "enable" else "disable"
+                                    Shell.cmd("magisk --denylist $cmd").submit { result ->
+                                        if (result.isSuccess) {
+                                            Config.denyList = checked
+                                            denyListEnabled = checked
+                                        }
+                                    }
                                 },
                                 startAction = {
                                     Icon(
@@ -544,11 +542,7 @@ fun SettingsScreen(
                                         tint = colorScheme.onBackground
                                     )
                                 },
-                                onClick = {
-                                    viewModel.onItemPressed(dummyView, DenyListConfig) {
-                                        viewModel.onItemAction(dummyView, DenyListConfig)
-                                    }
-                                }
+                                onClick = { viewModel.navigateToDenyListConfig() }
                             )
                         }
                     }
@@ -564,12 +558,14 @@ fun SettingsScreen(
                     ) {
                         // 防窗口覆盖
                         if (showTapjack) {
+                            var tapjackEnabled by rememberSaveable { mutableStateOf(Config.suTapjack) }
                             SuperSwitch(
                                 title = stringResource(CoreR.string.settings_su_tapjack_title),
                                 summary = stringResource(CoreR.string.settings_su_tapjack_summary),
-                                checked = Tapjack.isChecked,
+                                checked = tapjackEnabled,
                                 onCheckedChange = {
-                                    Tapjack.onToggle(dummyView, viewModel, it)
+                                    Config.suTapjack = it
+                                    tapjackEnabled = it
                                 },
                                 startAction = {
                                     Icon(
@@ -578,21 +574,31 @@ fun SettingsScreen(
                                         contentDescription = null,
                                         tint = colorScheme.onBackground
                                     )
-                                },
-                                enabled = Tapjack.isEnabled
+                                }
                             )
                         }
 
                         // 生物认证
-                        Authentication.refresh()
+                        var authEnabled by rememberSaveable { mutableStateOf(Config.suAuth) }
+                        val authEnabledState = remember { mutableStateOf(Info.isDeviceSecure) }
+                        val authSummary = if (authEnabledState.value) {
+                            stringResource(CoreR.string.settings_su_auth_summary)
+                        } else {
+                            stringResource(CoreR.string.settings_su_auth_insecure)
+                        }
                         SuperSwitch(
                             title = stringResource(CoreR.string.settings_su_auth_title),
-                            summary = Authentication.description.getText(res).toString()
-                                .takeIf { it.isNotEmpty() },
-                            checked = Authentication.isChecked,
-                            onCheckedChange = {
-                                Authentication.onToggle(dummyView, viewModel, it)
+                            summary = authSummary,
+                            checked = authEnabled,
+                            onCheckedChange = { checked ->
+                                viewModel.authenticateAndToggle(checked) { success ->
+                                    if (success) {
+                                        Config.suAuth = checked
+                                        authEnabled = checked
+                                    }
+                                }
                             },
+                            enabled = authEnabledState.value,
                             startAction = {
                                 Icon(
                                     Icons.Rounded.Fingerprint,
@@ -600,62 +606,37 @@ fun SettingsScreen(
                                     contentDescription = null,
                                     tint = colorScheme.onBackground
                                 )
-                            },
-                            enabled = Authentication.isEnabled
+                            }
                         )
 
                         // Root 访问模式
-                        AccessModeSelectorItem(
-                            res = res,
-                            dummyView = dummyView,
-                            viewModel = viewModel
-                        )
+                        AccessModeSelectorItem(res = res)
 
                         // 多用户模式
-                        MultiuserMode.refresh()
-                        MultiuserModeSelectorItem(
-                            res = res,
-                            dummyView = dummyView,
-                            viewModel = viewModel
-                        )
+                        MultiuserModeSelectorItem(res = res)
 
                         // 挂载命名空间模式
-                        MountNamespaceModeSelectorItem(
-                            res = res,
-                            dummyView = dummyView,
-                            viewModel = viewModel
-                        )
+                        MountNamespaceModeSelectorItem(res = res)
 
                         // 自动响应
-                        AutomaticResponseSelectorItem(
-                            res = res,
-                            dummyView = dummyView,
-                            viewModel = viewModel
-                        )
+                        AutomaticResponseSelectorItem(res = res, viewModel = viewModel)
 
                         // 请求超时
-                        RequestTimeoutSelectorItem(
-                            res = res,
-                            dummyView = dummyView,
-                            viewModel = viewModel
-                        )
+                        RequestTimeoutSelectorItem(res = res)
 
                         // Root 通知
-                        SUNotificationSelectorItem(
-                            res = res,
-                            dummyView = dummyView,
-                            viewModel = viewModel
-                        )
+                        SUNotificationSelectorItem(res = res)
 
                         // 重新认证
                         if (showReauthenticate) {
-                            Reauthenticate.refresh()
+                            var reauthEnabled by rememberSaveable { mutableStateOf(Config.suReAuth) }
                             SuperSwitch(
                                 title = stringResource(CoreR.string.settings_su_reauth_title),
                                 summary = stringResource(CoreR.string.settings_su_reauth_summary),
-                                checked = Reauthenticate.isChecked,
+                                checked = reauthEnabled,
                                 onCheckedChange = {
-                                    Reauthenticate.onToggle(dummyView, viewModel, it)
+                                    Config.suReAuth = it
+                                    reauthEnabled = it
                                 },
                                 startAction = {
                                     Icon(
@@ -664,19 +645,20 @@ fun SettingsScreen(
                                         contentDescription = null,
                                         tint = colorScheme.onBackground
                                     )
-                                },
-                                enabled = Reauthenticate.isEnabled
+                                }
                             )
                         }
 
                         // 限制前台应用
                         if (showRestrict) {
+                            var restrictEnabled by rememberSaveable { mutableStateOf(Config.suRestrict) }
                             SuperSwitch(
                                 title = stringResource(CoreR.string.settings_su_restrict_title),
                                 summary = stringResource(CoreR.string.settings_su_restrict_summary),
-                                checked = Restrict.isChecked,
+                                checked = restrictEnabled,
                                 onCheckedChange = {
-                                    Restrict.onToggle(dummyView, viewModel, it)
+                                    Config.suRestrict = it
+                                    restrictEnabled = it
                                 },
                                 startAction = {
                                     Icon(
@@ -685,15 +667,14 @@ fun SettingsScreen(
                                         contentDescription = null,
                                         tint = colorScheme.onBackground
                                     )
-                                },
-                                enabled = Restrict.isEnabled
+                                }
                             )
                         }
                     }
                 }
             }
 
-            // 底部留白 - 使用传入的 bottomPadding 确保最后一个卡片内容可以正常显示
+            // 底部留白
             item {
                 Spacer(Modifier.height(bottomPadding))
             }
@@ -702,40 +683,32 @@ fun SettingsScreen(
 }
 
 /**
- * 创建虚拟 View 用于兼容旧的 View 回调
+ * 获取应用语言摘要
  */
-private fun createDummyView(context: Context): View {
-    return FrameLayout(context)
-}
-
-// ==================== Selector 类型组件（使用 SuperDropdown 行内选择） ====================
-
 private fun appLanguageSummary(res: Resources): String {
     val locale = LocaleSetting.instance.appLocale
-    if (locale != null) {
-        return locale.getDisplayName(locale)
+    return if (locale != null) {
+        locale.getDisplayName(locale)
+    } else {
+        res.getString(CoreR.string.system_default)
     }
-    return res.getString(CoreR.string.system_default)
 }
 
 /**
  * 更新通道选择器
  */
 @Composable
-private fun UpdateChannelSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = UpdateChannel.entries(res)
-    var selected by remember { mutableIntStateOf(UpdateChannel.value) }
+private fun UpdateChannelSelectorItem(res: Resources) {
+    val entries = res.getStringArray(CoreR.array.update_channel)
+    var selected by rememberSaveable { mutableIntStateOf(Config.updateChannel) }
 
     SuperDropdown(
         title = stringResource(CoreR.string.settings_update_channel_title),
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            UpdateChannel.selectValue(index, dummyView, viewModel)
+            Config.updateChannel = index
+            Info.resetUpdate()
             selected = index
         },
         startAction = {
@@ -745,8 +718,7 @@ private fun UpdateChannelSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = UpdateChannel.isEnabled
+        }
     )
 }
 
@@ -754,20 +726,16 @@ private fun UpdateChannelSelectorItem(
  * Root 访问模式选择器
  */
 @Composable
-private fun AccessModeSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = AccessMode.entries(res)
-    var selected by remember { mutableIntStateOf(AccessMode.value) }
+private fun AccessModeSelectorItem(res: Resources) {
+    val entries = res.getStringArray(CoreR.array.su_access)
+    var selected by rememberSaveable { mutableIntStateOf(Config.rootMode) }
 
     SuperDropdown(
         title = stringResource(CoreR.string.superuser_access),
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            AccessMode.selectValue(index, dummyView, viewModel)
+            Config.rootMode = index
             selected = index
         },
         startAction = {
@@ -777,8 +745,7 @@ private fun AccessModeSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = AccessMode.isEnabled
+        }
     )
 }
 
@@ -786,24 +753,22 @@ private fun AccessModeSelectorItem(
  * 多用户模式选择器
  */
 @Composable
-private fun MultiuserModeSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = MultiuserMode.entries(res)
-    var selected by remember { mutableIntStateOf(MultiuserMode.value) }
+private fun MultiuserModeSelectorItem(res: Resources) {
+    val entries = res.getStringArray(CoreR.array.multiuser_mode)
+    val summaries = res.getStringArray(CoreR.array.multiuser_summary)
+    var selected by rememberSaveable { mutableIntStateOf(Config.suMultiuserMode) }
+    val enabled = Const.USER_ID == 0
 
     SuperDropdown(
         title = stringResource(CoreR.string.multiuser_mode),
-        summary = MultiuserMode.description.getText(res).toString()
-            .takeIf { it.isNotEmpty() },
+        summary = summaries.getOrElse(selected) { "" },
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            MultiuserMode.selectValue(index, dummyView, viewModel)
+            Config.suMultiuserMode = index
             selected = index
         },
+        enabled = enabled,
         startAction = {
             Icon(
                 Icons.Rounded.Group,
@@ -811,8 +776,7 @@ private fun MultiuserModeSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = MultiuserMode.isEnabled
+        }
     )
 }
 
@@ -820,22 +784,18 @@ private fun MultiuserModeSelectorItem(
  * 挂载命名空间模式选择器
  */
 @Composable
-private fun MountNamespaceModeSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = MountNamespaceMode.entries(res)
-    var selected by remember { mutableIntStateOf(MountNamespaceMode.value) }
+private fun MountNamespaceModeSelectorItem(res: Resources) {
+    val entries = res.getStringArray(CoreR.array.namespace)
+    val summaries = res.getStringArray(CoreR.array.namespace_summary)
+    var selected by rememberSaveable { mutableIntStateOf(Config.suMntNamespaceMode) }
 
     SuperDropdown(
         title = stringResource(CoreR.string.mount_namespace_mode),
-        summary = MountNamespaceMode.description.getText(res).toString()
-            .takeIf { it.isNotEmpty() },
+        summary = summaries.getOrElse(selected) { "" },
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            MountNamespaceMode.selectValue(index, dummyView, viewModel)
+            Config.suMntNamespaceMode = index
             selected = index
         },
         startAction = {
@@ -845,8 +805,7 @@ private fun MountNamespaceModeSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = MountNamespaceMode.isEnabled
+        }
     )
 }
 
@@ -854,21 +813,24 @@ private fun MountNamespaceModeSelectorItem(
  * 自动响应选择器
  */
 @Composable
-private fun AutomaticResponseSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = AutomaticResponse.entries(res)
-    var selected by remember { mutableIntStateOf(AutomaticResponse.value) }
+private fun AutomaticResponseSelectorItem(res: Resources, viewModel: SettingsViewModel) {
+    val entries = res.getStringArray(CoreR.array.auto_response)
+    var selected by rememberSaveable { mutableIntStateOf(Config.suAutoResponse) }
 
     SuperDropdown(
         title = stringResource(CoreR.string.auto_response),
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            viewModel.onItemPressed(dummyView, AutomaticResponse) {
-                AutomaticResponse.selectValue(index, dummyView, viewModel)
+            if (Config.suAuth) {
+                viewModel.authenticate { success ->
+                    if (success) {
+                        Config.suAutoResponse = index
+                        selected = index
+                    }
+                }
+            } else {
+                Config.suAutoResponse = index
                 selected = index
             }
         },
@@ -879,8 +841,7 @@ private fun AutomaticResponseSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = AutomaticResponse.isEnabled
+        }
     )
 }
 
@@ -888,20 +849,19 @@ private fun AutomaticResponseSelectorItem(
  * 请求超时选择器
  */
 @Composable
-private fun RequestTimeoutSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = RequestTimeout.entries(res)
-    var selected by remember { mutableIntStateOf(RequestTimeout.value) }
+private fun RequestTimeoutSelectorItem(res: Resources) {
+    val entries = res.getStringArray(CoreR.array.request_timeout)
+    val entryValues = listOf(10, 15, 20, 30, 45, 60)
+    var selected by rememberSaveable {
+        mutableIntStateOf(entryValues.indexOfFirst { it == Config.suDefaultTimeout }.coerceAtLeast(0))
+    }
 
     SuperDropdown(
         title = stringResource(CoreR.string.request_timeout),
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            RequestTimeout.selectValue(index, dummyView, viewModel)
+            Config.suDefaultTimeout = entryValues[index]
             selected = index
         },
         startAction = {
@@ -911,8 +871,7 @@ private fun RequestTimeoutSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = RequestTimeout.isEnabled
+        }
     )
 }
 
@@ -920,20 +879,16 @@ private fun RequestTimeoutSelectorItem(
  * Root 通知选择器
  */
 @Composable
-private fun SUNotificationSelectorItem(
-    res: Resources,
-    dummyView: View,
-    viewModel: SettingsViewModel
-) {
-    val entries = SUNotification.entries(res)
-    var selected by remember { mutableIntStateOf(SUNotification.value) }
+private fun SUNotificationSelectorItem(res: Resources) {
+    val entries = res.getStringArray(CoreR.array.su_notification)
+    var selected by rememberSaveable { mutableIntStateOf(Config.suNotification) }
 
     SuperDropdown(
         title = stringResource(CoreR.string.superuser_notification),
         items = entries.toList(),
         selectedIndex = selected.coerceIn(0, entries.size - 1),
         onSelectedIndexChange = { index ->
-            SUNotification.selectValue(index, dummyView, viewModel)
+            Config.suNotification = index
             selected = index
         },
         startAction = {
@@ -943,7 +898,6 @@ private fun SUNotificationSelectorItem(
                 contentDescription = null,
                 tint = colorScheme.onBackground
             )
-        },
-        enabled = SUNotification.isEnabled
+        }
     )
 }

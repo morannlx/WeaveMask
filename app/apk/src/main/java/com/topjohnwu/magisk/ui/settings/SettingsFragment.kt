@@ -1,40 +1,31 @@
 package com.topjohnwu.magisk.ui.settings
 
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
-import com.topjohnwu.magisk.R
-import com.topjohnwu.magisk.arch.BaseFragment
-import com.topjohnwu.magisk.arch.viewModel
-import com.topjohnwu.magisk.databinding.FragmentSettingsMd2Binding
-import rikka.recyclerview.addEdgeSpacing
-import rikka.recyclerview.addItemSpacing
-import rikka.recyclerview.fixEdgeEffect
+import android.view.ViewGroup
+import androidx.fragment.app.Fragment
 import com.topjohnwu.magisk.core.R as CoreR
 
-class SettingsFragment : BaseFragment<FragmentSettingsMd2Binding>() {
+/**
+ * 设置页面 Fragment
+ * 
+ * 注意：设置页面现在由 MainActivity 的 Compose 实现。
+ * 这个 Fragment 保留用于兼容旧版导航，但显示为空。
+ */
+class SettingsFragment : Fragment() {
 
-    override val layoutRes = R.layout.fragment_settings_md2
-    override val viewModel by viewModel<SettingsViewModel>()
-    override val snackbarView: View get() = binding.snackbarContainer
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        // 返回一个空视图，因为设置页面已经在 MainActivity 的 Compose 中实现
+        return View(requireContext())
+    }
 
     override fun onStart() {
         super.onStart()
-
         activity?.title = resources.getString(CoreR.string.settings)
     }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        binding.settingsList.apply {
-            addEdgeSpacing(bottom = R.dimen.l1)
-            addItemSpacing(R.dimen.l1, R.dimen.l_50, R.dimen.l1)
-            fixEdgeEffect()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        viewModel.items.forEach { it.refresh() }
-    }
-
 }

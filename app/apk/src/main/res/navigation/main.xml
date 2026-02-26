@@ -83,18 +83,7 @@
     <fragment
         android:id="@+id/settingsFragment"
         android:name="com.topjohnwu.magisk.ui.settings.SettingsFragment"
-        android:label="SettingsFragment"
-        tools:layout="@layout/fragment_settings_md2">
-
-        <action
-            android:id="@+id/action_settingsFragment_to_denyFragment"
-            app:destination="@id/denyFragment"
-            app:enterAnim="@anim/fragment_enter"
-            app:exitAnim="@anim/fragment_exit"
-            app:popEnterAnim="@anim/fragment_enter_pop"
-            app:popExitAnim="@anim/fragment_exit_pop" />
-
-    </fragment>
+        android:label="SettingsFragment" />
 
     <fragment
         android:id="@+id/superuserFragment"

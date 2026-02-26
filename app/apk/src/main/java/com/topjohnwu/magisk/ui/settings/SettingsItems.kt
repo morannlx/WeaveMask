@@ -1,312 +1,129 @@
 package com.topjohnwu.magisk.ui.settings
 
-import android.content.Context
+import android.app.Activity
 import android.content.res.Resources
-import android.os.Build
 import android.view.LayoutInflater
-import android.view.View
-import androidx.databinding.Bindable
-import com.topjohnwu.magisk.BR
-import com.topjohnwu.magisk.R
-import com.topjohnwu.magisk.core.BuildConfig
+import android.widget.EditText
 import com.topjohnwu.magisk.core.Config
-import com.topjohnwu.magisk.core.Const
 import com.topjohnwu.magisk.core.Info
-import com.topjohnwu.magisk.core.ktx.activity
-import com.topjohnwu.magisk.core.tasks.AppMigration
 import com.topjohnwu.magisk.core.utils.MediaStoreUtils
-import com.topjohnwu.magisk.databinding.DialogSettingsAppNameBinding
-import com.topjohnwu.magisk.databinding.DialogSettingsDownloadPathBinding
-import com.topjohnwu.magisk.databinding.DialogSettingsUpdateChannelBinding
-import com.topjohnwu.magisk.databinding.set
-import com.topjohnwu.magisk.utils.TextHolder
-import com.topjohnwu.magisk.utils.asText
 import com.topjohnwu.magisk.view.MagiskDialog
-import com.topjohnwu.superuser.Shell
 import com.topjohnwu.magisk.core.R as CoreR
 
-// --- Logs (作为设置页的二级入口)
+/**
+ * 设置项工具对象
+ * 提供设置项的辅助方法和对话框显示
+ */
 
 /**
- * 日志入口项
- * 点击后导航到日志页面
+ * 检查自定义更新通道是否启用
  */
-object Logs : BaseSettingsItem.Blank() {
-    override val title = CoreR.string.logs.asText()
+object UpdateChannelUrl {
+    fun isEnabled(): Boolean = Config.updateChannel == Config.Value.CUSTOM_CHANNEL
+
+    fun getDescription(res: Resources): String? {
+        return Config.customChannelUrl.takeIf { it.isNotEmpty() }
+    }
+
+    fun showDialog(activity: Activity, viewModel: SettingsViewModel) {
+        val view = LayoutInflater.from(activity).inflate(
+            com.topjohnwu.magisk.R.layout.dialog_settings_update_channel, null
+        )
+        val editText = view.findViewById<EditText>(
+            com.topjohnwu.magisk.R.id.dialog_custom_download_text
+        )
+        editText.setText(Config.customChannelUrl)
+
+        MagiskDialog(activity).apply {
+            setTitle(CoreR.string.settings_update_custom)
+            setView(view)
+            setButton(MagiskDialog.ButtonType.POSITIVE) {
+                text = android.R.string.ok
+                onClick {
+                    val newUrl = editText.text?.toString() ?: ""
+                    Config.customChannelUrl = newUrl
+                    Info.resetUpdate()
+                    doNotDismiss = false
+                }
+            }
+            setButton(MagiskDialog.ButtonType.NEGATIVE) {
+                text = android.R.string.cancel
+            }
+        }.show()
+    }
 }
 
-// --- Customization
+/**
+ * 下载路径设置
+ */
+object DownloadPath {
+    fun showDialog(activity: Activity, viewModel: SettingsViewModel) {
+        val view = LayoutInflater.from(activity).inflate(
+            com.topjohnwu.magisk.R.layout.dialog_settings_download_path, null
+        )
+        val titleText = view.findViewById<android.widget.TextView>(
+            com.topjohnwu.magisk.R.id.dialog_custom_download_title
+        )
+        val editText = view.findViewById<EditText>(
+            com.topjohnwu.magisk.R.id.dialog_custom_download_text
+        )
 
-object Customization : BaseSettingsItem.Section() {
-    override val title = CoreR.string.settings_customization.asText()
+        titleText.text = activity.getString(
+            CoreR.string.settings_download_path_message,
+            MediaStoreUtils.fullPath(Config.downloadDir)
+        )
+        editText.setText(Config.downloadDir)
+
+        MagiskDialog(activity).apply {
+            setTitle(CoreR.string.settings_download_path_title)
+            setView(view)
+            setButton(MagiskDialog.ButtonType.POSITIVE) {
+                text = android.R.string.ok
+                onClick {
+                    val newPath = editText.text?.toString() ?: ""
+                    Config.downloadDir = newPath
+                    doNotDismiss = false
+                }
+            }
+            setButton(MagiskDialog.ButtonType.NEGATIVE) {
+                text = android.R.string.cancel
+            }
+        }.show()
+    }
 }
 
-// --- App
+/**
+ * 隐藏应用设置
+ */
+object Hide {
+    fun showDialog(activity: Activity, viewModel: SettingsViewModel) {
+        val view = LayoutInflater.from(activity).inflate(
+            com.topjohnwu.magisk.R.layout.dialog_settings_app_name, null
+        )
+        val editText = view.findViewById<EditText>(
+            com.topjohnwu.magisk.R.id.app_name
+        )
+        editText.setText("Settings")
 
-object AppSettings : BaseSettingsItem.Section() {
-    override val title = CoreR.string.home_app_title.asText()
-}
-
-object Hide : BaseSettingsItem.Input() {
-    override val title = CoreR.string.settings_hide_app_title.asText()
-    override val description = CoreR.string.settings_hide_app_summary.asText()
-    override var value = ""
-
-    override val inputResult
-        get() = if (isError) null else result
-
-    @get:Bindable
-    var result = "Settings"
-        set(value) = set(value, field, { field = it }, BR.result, BR.error)
-
-    val maxLength
-        get() = AppMigration.MAX_LABEL_LENGTH
-
-    @get:Bindable
-    val isError
-        get() = result.length > maxLength || result.isBlank()
-
-    override fun getView(context: Context) = DialogSettingsAppNameBinding
-        .inflate(LayoutInflater.from(context)).also { it.data = this }.root
-}
-
-object Restore : BaseSettingsItem.Blank() {
-    override val title = CoreR.string.settings_restore_app_title.asText()
-    override val description = CoreR.string.settings_restore_app_summary.asText()
-
-    override fun onPressed(view: View, handler: Handler) {
-        handler.onItemPressed(view, this) {
-            MagiskDialog(view.activity).apply {
-                setTitle(CoreR.string.settings_restore_app_title)
-                setMessage(CoreR.string.restore_app_confirmation)
-                setButton(MagiskDialog.ButtonType.POSITIVE) {
-                    text = android.R.string.ok
-                    onClick {
-                        handler.onItemAction(view, this@Restore)
+        MagiskDialog(activity).apply {
+            setTitle(CoreR.string.settings_hide_app_title)
+            setMessage(CoreR.string.settings_hide_app_summary)
+            setView(view)
+            setButton(MagiskDialog.ButtonType.POSITIVE) {
+                text = android.R.string.ok
+                onClick {
+                    val newName = editText.text?.toString() ?: "Settings"
+                    if (newName.isNotBlank() && newName.length <= 30) {
+                        viewModel.hideApp(newName)
+                        doNotDismiss = false
+                    } else {
+                        doNotDismiss = true
                     }
                 }
-                setButton(MagiskDialog.ButtonType.NEGATIVE) {
-                    text = android.R.string.cancel
-                }
-                setCancelable(true)
-                show()
             }
-        }
-    }
-}
-
-object AddShortcut : BaseSettingsItem.Blank() {
-    override val title = CoreR.string.add_shortcut_title.asText()
-    override val description = CoreR.string.setting_add_shortcut_summary.asText()
-}
-
-object DownloadPath : BaseSettingsItem.Input() {
-    override var value
-        get() = Config.downloadDir
-        set(value) {
-            Config.downloadDir = value
-            notifyPropertyChanged(BR.description)
-        }
-
-    override val title = CoreR.string.settings_download_path_title.asText()
-    override val description get() = MediaStoreUtils.fullPath(value).asText()
-
-    override var inputResult: String = value
-        set(value) = set(value, field, { field = it }, BR.inputResult, BR.path)
-
-    @get:Bindable
-    val path get() = MediaStoreUtils.fullPath(inputResult)
-
-    override fun getView(context: Context) = DialogSettingsDownloadPathBinding
-        .inflate(LayoutInflater.from(context)).also { it.data = this }.root
-}
-
-object UpdateChannel : BaseSettingsItem.Selector() {
-    override var value
-        get() = Config.updateChannel
-        set(value) {
-            Config.updateChannel = value
-            Info.resetUpdate()
-        }
-
-    override val title = CoreR.string.settings_update_channel_title.asText()
-    override val entryRes = CoreR.array.update_channel
-}
-
-object UpdateChannelUrl : BaseSettingsItem.Input() {
-    override val title = CoreR.string.settings_update_custom.asText()
-    override val description get() = value.asText()
-    override var value
-        get() = Config.customChannelUrl
-        set(value) {
-            Config.customChannelUrl = value
-            Info.resetUpdate()
-            notifyPropertyChanged(BR.description)
-        }
-
-    override var inputResult: String = value
-        set(value) = set(value, field, { field = it }, BR.inputResult)
-
-    override fun refresh() {
-        isEnabled = UpdateChannel.value == Config.Value.CUSTOM_CHANNEL
-    }
-
-    override fun getView(context: Context) = DialogSettingsUpdateChannelBinding
-        .inflate(LayoutInflater.from(context)).also { it.data = this }.root
-}
-
-object UpdateChecker : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_check_update_title.asText()
-    override val description = CoreR.string.settings_check_update_summary.asText()
-    override var value by Config::checkUpdate
-}
-
-object DoHToggle : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_doh_title.asText()
-    override val description = CoreR.string.settings_doh_description.asText()
-    override var value by Config::doh
-}
-
-object SystemlessHosts : BaseSettingsItem.Blank() {
-    override val title = CoreR.string.settings_hosts_title.asText()
-    override val description = CoreR.string.settings_hosts_summary.asText()
-}
-
-object RandNameToggle : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_random_name_title.asText()
-    override val description = CoreR.string.settings_random_name_description.asText()
-    override var value by Config::randName
-}
-
-// --- Magisk
-
-object Magisk : BaseSettingsItem.Section() {
-    override val title = CoreR.string.magisk.asText()
-}
-
-object Zygisk : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.zygisk.asText()
-    override val description get() =
-        if (mismatch) CoreR.string.reboot_apply_change.asText()
-        else CoreR.string.settings_zygisk_summary.asText()
-    override var value
-        get() = Config.zygisk
-        set(value) {
-            Config.zygisk = value
-            notifyPropertyChanged(BR.description)
-        }
-    val mismatch get() = value != Info.isZygiskEnabled
-}
-
-object DenyList : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_denylist_title.asText()
-    override val description get() = CoreR.string.settings_denylist_summary.asText()
-
-    override var value = Config.denyList
-        set(value) {
-            field = value
-            val cmd = if (value) "enable" else "disable"
-            Shell.cmd("magisk --denylist $cmd").submit { result ->
-                if (result.isSuccess) {
-                    Config.denyList = value
-                } else {
-                    field = !value
-                    notifyPropertyChanged(BR.checked)
-                }
+            setButton(MagiskDialog.ButtonType.NEGATIVE) {
+                text = android.R.string.cancel
             }
-        }
-}
-
-object DenyListConfig : BaseSettingsItem.Blank() {
-    override val title = CoreR.string.settings_denylist_config_title.asText()
-    override val description = CoreR.string.settings_denylist_config_summary.asText()
-}
-
-// --- Superuser
-
-object Tapjack : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_su_tapjack_title.asText()
-    override val description = CoreR.string.settings_su_tapjack_summary.asText()
-    override var value by Config::suTapjack
-}
-
-object Authentication : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_su_auth_title.asText()
-    override var description = CoreR.string.settings_su_auth_summary.asText()
-    override var value by Config::suAuth
-
-    override fun refresh() {
-        isEnabled = Info.isDeviceSecure
-        if (!isEnabled) {
-            description = CoreR.string.settings_su_auth_insecure.asText()
-        }
+        }.show()
     }
-}
-
-object Superuser : BaseSettingsItem.Section() {
-    override val title = CoreR.string.superuser.asText()
-}
-
-object AccessMode : BaseSettingsItem.Selector() {
-    override val title = CoreR.string.superuser_access.asText()
-    override val entryRes = CoreR.array.su_access
-    override var value by Config::rootMode
-}
-
-object MultiuserMode : BaseSettingsItem.Selector() {
-    override val title = CoreR.string.multiuser_mode.asText()
-    override val entryRes = CoreR.array.multiuser_mode
-    override val descriptionRes = CoreR.array.multiuser_summary
-    override var value by Config::suMultiuserMode
-
-    override fun refresh() {
-        isEnabled = Const.USER_ID == 0
-    }
-}
-
-object MountNamespaceMode : BaseSettingsItem.Selector() {
-    override val title = CoreR.string.mount_namespace_mode.asText()
-    override val entryRes = CoreR.array.namespace
-    override val descriptionRes = CoreR.array.namespace_summary
-    override var value by Config::suMntNamespaceMode
-}
-
-object AutomaticResponse : BaseSettingsItem.Selector() {
-    override val title = CoreR.string.auto_response.asText()
-    override val entryRes = CoreR.array.auto_response
-    override var value by Config::suAutoResponse
-}
-
-object RequestTimeout : BaseSettingsItem.Selector() {
-    override val title = CoreR.string.request_timeout.asText()
-    override val entryRes = CoreR.array.request_timeout
-
-    private val entryValues = listOf(10, 15, 20, 30, 45, 60)
-    override var value = entryValues.indexOfFirst { it == Config.suDefaultTimeout }
-        set(value) {
-            field = value
-            Config.suDefaultTimeout = entryValues[value]
-        }
-}
-
-object SUNotification : BaseSettingsItem.Selector() {
-    override val title = CoreR.string.superuser_notification.asText()
-    override val entryRes = CoreR.array.su_notification
-    override var value by Config::suNotification
-}
-
-object Reauthenticate : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_su_reauth_title.asText()
-    override val description = CoreR.string.settings_su_reauth_summary.asText()
-    override var value by Config::suReAuth
-
-    override fun refresh() {
-        isEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
-    }
-}
-
-object Restrict : BaseSettingsItem.Toggle() {
-    override val title = CoreR.string.settings_su_restrict_title.asText()
-    override val description = CoreR.string.settings_su_restrict_summary.asText()
-    override var value by Config::suRestrict
 }
