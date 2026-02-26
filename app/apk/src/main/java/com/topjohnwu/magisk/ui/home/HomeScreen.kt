@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -45,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -588,7 +590,7 @@ private fun ManagerCard(
 
 /**
  * 卸载按钮
- * 用于卸载 Magisk
+ * 用于卸载 Magisk，使用 Error Container 样式
  */
 @Composable
 private fun UninstallButton(
@@ -596,27 +598,35 @@ private fun UninstallButton(
 ) {
     val context = LocalContext.current
 
-    Button(
+    Surface(
         onClick = onPressed,
         modifier = Modifier
             .padding(top = 12.dp)
             .fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(
-            color = MiuixTheme.colorScheme.error
-        )
+        color = MiuixTheme.colorScheme.errorContainer,
+        border = BorderStroke(1.dp, MiuixTheme.colorScheme.error),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     ) {
-        Icon(
-            imageVector = MiuixIcons.Delete,
-            contentDescription = null,
-            tint = MiuixTheme.colorScheme.onError,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = context.getString(CoreR.string.uninstall_magisk_title),
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onError
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Delete,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = context.getString(CoreR.string.uninstall_magisk_title),
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onErrorContainer
+            )
+        }
     }
 }
 
