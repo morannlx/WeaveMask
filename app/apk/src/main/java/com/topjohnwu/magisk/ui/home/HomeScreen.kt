@@ -50,6 +50,7 @@ import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import com.topjohnwu.magisk.dialog.EnvFixDialog
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Download
@@ -97,6 +98,14 @@ fun HomeScreen(
             viewModel.startLoading()
         }
     }
+
+    // EnvFixDialog
+    EnvFixDialog(
+        state = viewModel.envFixDialogState,
+        context = context,
+        onDismiss = { viewModel.dismissEnvFixDialog() },
+        onNavigateToInstall = { viewModel.navigateToInstall() }
+    )
 
     Scaffold(
         modifier = modifier,

@@ -44,6 +44,8 @@ class HomeViewModel(
         LOADING, INVALID, OUTDATED, UP_TO_DATE
     }
 
+
+
     val magiskTitleBarrierIds =
         intArrayOf(R.id.home_magisk_icon, R.id.home_magisk_title, R.id.home_magisk_button)
     val appTitleBarrierIds =
@@ -54,6 +56,12 @@ class HomeViewModel(
      * 使用 Compose State 以便在状态变化时自动重组 UI
      */
     var isNoticeVisible by mutableStateOf(Config.safetyNotice)
+        private set
+
+    /**
+     * EnvFixDialog 状态
+     */
+    var envFixDialogState by mutableStateOf(EnvFixDialog.DialogState())
         private set
 
     val magiskState
@@ -170,12 +178,46 @@ class HomeViewModel(
         isNoticeVisible = false
     }
 
+    /**
+     * 显示 EnvFixDialog
+     * 根据 code 值判断是普通修复还是完整修复
+     */
+    fun showEnvFixDialog(code: Int) {
+        val isFullFix = EnvFixDialog.isFullFixRequired(code)
+        envFixDialogState = EnvFixDialog.DialogState(
+            visible = true,
+            state = if (isFullFix) EnvFixDialog.State.FULL_FIX else EnvFixDialog.State.NORMAL_FIX,
+            code = code
+        )
+    }
+
+    /**
+     * 关闭 EnvFixDialog
+     */
+    fun dismissEnvFixDialog() {
+        envFixDialogState = EnvFixDialog.DialogState()
+    }
+
+    /**
+     * 切换到修复中状态
+     */
+    fun startFixing() {
+        envFixDialogState = envFixDialogState.copy(state = EnvFixDialog.State.FIXING)
+    }
+
+    /**
+     * 导航到安装页面（用于完整修复模式）
+     */
+    fun navigateToInstall() {
+        dismissEnvFixDialog()
+        onMagiskPressed()
+    }
+
     private suspend fun ensureEnv() {
         if (magiskState == State.INVALID || checkedEnv) return
-        val cmd = "env_check ${Info.env.versionString} ${Info.env.versionCode}"
-        val code = Shell.cmd(cmd).await().code
+        val code = EnvFixDialog.checkEnv()
         if (code != 0) {
-            EnvFixDialog(this, code).show()
+            showEnvFixDialog(code)
         }
         checkedEnv = true
     }
