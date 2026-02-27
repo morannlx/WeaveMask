@@ -69,11 +69,19 @@ class FlashViewModel : BaseViewModel() {
         }
     }
 
+    /**
+     * 准备 Compose 界面的刷写环境
+     * 每次进入 Flash 页面时都会调用，重置所有状态以确保可以重复执行安装
+     *
+     * @param action 刷写操作类型（如 FLASH_MAGISK、PATCH_FILE 等）
+     * @param uri 附加数据 URI（如修补文件时的文件 URI）
+     */
     fun prepareForCompose(action: String, uri: android.net.Uri?) {
-        if (isInitialized) return
+        // 重置状态标志，允许重复初始化
         isInitialized = true
         isFlashingStarted = false
 
+        // 重新初始化参数和状态
         args = FlashFragmentArgs(action = action, additionalData = uri)
         _state.value = State.FLASHING
         showReboot = Info.isRooted
