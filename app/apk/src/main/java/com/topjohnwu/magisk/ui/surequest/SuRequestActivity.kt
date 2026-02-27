@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
@@ -64,7 +65,11 @@ class SuRequestActivity : ComponentActivity(), UntrackedActivity {
 
         // 设置 Compose 内容
         setContent {
-            WeaveMagiskTheme {
+            val colorMode = Config.colorMode
+            val keyColorInt = Config.keyColor
+            val keyColor = if (keyColorInt == 0) null else Color(keyColorInt)
+
+            WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {
                 val dialogState by viewModel.dialogState.collectAsState()
 
                 SuRequestDialog(

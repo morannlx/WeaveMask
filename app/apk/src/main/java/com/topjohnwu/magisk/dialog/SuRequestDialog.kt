@@ -208,50 +208,45 @@ private fun SuRequestAppInfo(
     packageName: String,
     isSharedUid: Boolean
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MiuixTheme.colorScheme.surfaceContainer
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
+        // 应用图标
+        if (icon != null) {
+            Image(
+                bitmap = icon.toBitmap().asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // 应用名称和包名
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
         ) {
-            // 应用图标
-            if (icon != null) {
-                Image(
-                    bitmap = icon.toBitmap().asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // 应用名称和包名
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                val displayName = if (isSharedUid) "[SharedUID] $appName" else appName
-                Text(
-                    text = displayName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = packageName,
-                    fontSize = 13.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            val displayName = if (isSharedUid) "[SharedUID] $appName" else appName
+            Text(
+                text = displayName,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MiuixTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = packageName,
+                fontSize = 13.sp,
+                color = MiuixTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
