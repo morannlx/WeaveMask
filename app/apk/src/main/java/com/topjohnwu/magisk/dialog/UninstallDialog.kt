@@ -17,10 +17,13 @@ import com.topjohnwu.magisk.core.R as CoreR
 import com.topjohnwu.magisk.core.ktx.toast
 import com.topjohnwu.magisk.core.tasks.MagiskInstaller
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextButtonColors
 import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 卸载对话框状态管理
@@ -95,7 +98,12 @@ fun UninstallDialog(
                     text = context.getString(CoreR.string.complete_uninstall),
                     onClick = onCompleteUninstall,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary()
+                    colors = TextButtonColors(
+                        color = MiuixTheme.colorScheme.error,
+                        disabledColor = MiuixTheme.colorScheme.error.copy(alpha = 0.38f),
+                        textColor = MiuixTheme.colorScheme.onError,
+                        disabledTextColor = MiuixTheme.colorScheme.onError.copy(alpha = 0.38f)
+                    )
                 )
             }
         }
