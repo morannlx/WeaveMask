@@ -11,6 +11,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Slider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Article
 import android.os.Process
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -62,6 +66,7 @@ import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.extra.SuperListPopup
@@ -187,7 +192,6 @@ fun SuperuserScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .hazeSource(state = hazeState)
                         .padding(paddingValues)
                 ) {
                     SearchBar(
@@ -246,7 +250,8 @@ fun SuperuserScreen(
                                             pendingRevokeKey = key
                                             viewModel.onRevokePressed(key)
                                         },
-                                        nestedScrollConnection = scrollBehavior.nestedScrollConnection
+                                        nestedScrollConnection = scrollBehavior.nestedScrollConnection,
+                                        hazeState = hazeState
                                     )
                                 }
                             }
@@ -308,6 +313,7 @@ private fun EmptyContent() {
  * @param bottomPadding 底部内边距
  * @param onDelete 删除回调
  * @param nestedScrollConnection 嵌套滚动连接
+ * @param hazeState Haze 模糊状态
  */
 @Composable
 private fun PolicyList(
@@ -317,12 +323,14 @@ private fun PolicyList(
     expandedPolicyKeys: List<String>,
     onToggleExpanded: (String) -> Unit,
     onDelete: (String) -> Unit,
-    nestedScrollConnection: NestedScrollConnection
+    nestedScrollConnection: NestedScrollConnection,
+    hazeState: HazeState
 ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
+            .hazeSource(state = hazeState)
             .nestedScroll(nestedScrollConnection),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -494,63 +502,43 @@ private fun PolicyItem(
                 Column {
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // 水平排列的三个按钮：通知、日志、撤销
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = context.getString(CoreR.string.superuser_toggle_notification),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Switch(
-                                checked = item.shouldNotify,
-                                enabled = true,
-                                onCheckedChange = { onUpdateNotify() }
-                            )
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = context.getString(CoreR.string.logs),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Switch(
-                                checked = item.shouldLog,
-                                enabled = true,
-                                onCheckedChange = { onUpdateLogging() }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Button(
-                        onClick = onDelete,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            color = MiuixTheme.colorScheme.errorContainer
+                        // 通知按钮
+                        TextButtonWithIcon(
+                            icon = Icons.Filled.Notifications,
+                            text = context.getString(CoreR.string.superuser_toggle_notification),
+                            isSelected = item.shouldNotify,
+                            onClick = onUpdateNotify,
+                            modifier = Modifier.weight(1f)
                         )
-                    ) {
-                        Icon(
-                            imageVector = MiuixIcons.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MiuixTheme.colorScheme.onErrorContainer
+
+                        // 垂直分隔线
+                        VerticalDivider()
+
+                        // 日志按钮
+                        TextButtonWithIcon(
+                            icon = Icons.Filled.Article,
+                            text = context.getString(CoreR.string.logs),
+                            isSelected = item.shouldLog,
+                            onClick = onUpdateLogging,
+                            modifier = Modifier.weight(1f)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
+
+                        // 垂直分隔线
+                        VerticalDivider()
+
+                        // 撤销按钮
+                        TextButtonWithIcon(
+                            icon = MiuixIcons.Delete,
                             text = context.getString(CoreR.string.superuser_toggle_revoke),
-                            color = MiuixTheme.colorScheme.onErrorContainer
+                            isError = true,
+                            onClick = onDelete,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -592,4 +580,76 @@ private fun policyTagText(uid: Int): String {
         uid < Process.FIRST_APPLICATION_UID -> "CUSTOM"
         else -> ""
     }
+}
+
+/**
+ * 带图标的文本按钮组件
+ * 用于卡片展开区域的通知、日志和撤销按钮
+ *
+ * @param icon 图标
+ * @param text 按钮文字
+ * @param isSelected 是否选中状态（影响颜色）
+ * @param isError 是否错误状态（使用错误色）
+ * @param onClick 点击回调
+ * @param modifier Modifier
+ */
+@Composable
+private fun TextButtonWithIcon(
+    icon: ImageVector,
+    text: String,
+    isSelected: Boolean = false,
+    isError: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val contentColor = when {
+        isError -> MiuixTheme.colorScheme.error
+        isSelected -> MiuixTheme.colorScheme.primary
+        else -> MiuixTheme.colorScheme.onSurfaceContainer
+    }
+
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(
+            color = Color.Transparent
+        ),
+        insideMargin = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = contentColor
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                color = contentColor,
+                style = MiuixTheme.textStyles.body2
+            )
+        }
+    }
+}
+
+/**
+ * 垂直分隔线组件
+ * 用于按钮之间的分隔
+ *
+ * @param modifier Modifier
+ */
+@Composable
+private fun VerticalDivider(
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.material3.VerticalDivider(
+        modifier = modifier
+            .height(24.dp)
+            .padding(horizontal = 4.dp),
+        color = MiuixTheme.colorScheme.dividerLine
+    )
 }
