@@ -31,6 +31,10 @@ import com.topjohnwu.magisk.databinding.bindExtra
 import com.topjohnwu.magisk.databinding.set
 import com.topjohnwu.magisk.databinding.setAdapter
 import com.topjohnwu.magisk.view.MagiskDialog.DialogClickListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 typealias DialogButtonClickListener = (DialogInterface) -> Unit
 
@@ -44,10 +48,21 @@ class MagiskDialog(
 
     val activity: UIActivity<*> get() = ownerActivity as UIActivity<*>
 
+    /**
+     * 对话框的协程作用域，用于在对话框中执行异步操作
+     * 该作用域会在对话框 dismiss 时自动取消，避免内存泄漏和空指针异常
+     */
+    val dialogScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     init {
         binding.setVariable(BR.data, data)
         setCancelable(true)
         setOwnerActivity(context)
+    }
+
+    override fun dismiss() {
+        dialogScope.cancel()
+        super.dismiss()
     }
 
     inner class Data : ObservableHost {
