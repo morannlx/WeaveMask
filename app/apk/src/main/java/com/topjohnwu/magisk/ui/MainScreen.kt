@@ -266,6 +266,8 @@ fun MainScreen(
     installViewModel: InstallViewModel,
     settingsViewModel: SettingsViewModel,
     initialMainTab: Int = 0,
+    pendingFlashAction: String? = null,
+    pendingFlashUri: Uri? = null,
     colorMode: Int = 0,
     keyColor: Color? = null,
     modifier: Modifier = Modifier
@@ -273,6 +275,15 @@ fun MainScreen(
     val navController = rememberNavController()
     var rememberedMainTab by rememberSaveable {
         mutableIntStateOf(initialMainTab.coerceIn(0, 3))
+    }
+
+    // 处理来自下载完成通知的 flash 导航请求
+    LaunchedEffect(pendingFlashAction) {
+        if (pendingFlashAction != null) {
+            navController.navigate(Screen.Flash.createRoute(pendingFlashAction, pendingFlashUri)) {
+                launchSingleTop = true
+            }
+        }
     }
 
     WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {

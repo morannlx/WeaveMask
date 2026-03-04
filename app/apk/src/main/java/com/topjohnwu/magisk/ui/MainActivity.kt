@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -81,6 +82,8 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
 
     companion object {
         const val EXTRA_START_MAIN_TAB = "start_main_tab"
+        const val EXTRA_FLASH_ACTION = "extra_flash_action"
+        const val EXTRA_FLASH_URI = "extra_flash_uri"
     }
 
     /** Activity 扩展，用于处理权限请求等通用功能 */
@@ -147,6 +150,12 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
         val initialMainTab = intent.getIntExtra(EXTRA_START_MAIN_TAB, 0)
         intent.removeExtra(EXTRA_START_MAIN_TAB)
 
+        // 从下载完成的 PendingIntent 中提取 flash 参数
+        val pendingFlashAction = intent.getStringExtra(EXTRA_FLASH_ACTION)
+        val pendingFlashUri = intent.getStringExtra(EXTRA_FLASH_URI)?.let { Uri.parse(it) }
+        intent.removeExtra(EXTRA_FLASH_ACTION)
+        intent.removeExtra(EXTRA_FLASH_URI)
+
         // 设置 Compose 内容
         setContent {
             var colorMode by remember { mutableIntStateOf(Config.colorMode) }
@@ -199,6 +208,8 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                     installViewModel = installViewModel,
                     settingsViewModel = settingsViewModel,
                     initialMainTab = initialMainTab,
+                    pendingFlashAction = pendingFlashAction,
+                    pendingFlashUri = pendingFlashUri,
                     colorMode = colorMode,
                     keyColor = keyColor,
                     modifier = Modifier.fillMaxSize()

@@ -1,9 +1,12 @@
 package com.topjohnwu.magisk.ui.flash
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.Menu
@@ -12,7 +15,6 @@ import android.view.MenuItem
 import android.view.View
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
-import androidx.navigation.NavDeepLinkBuilder
 import com.topjohnwu.magisk.MainDirections
 import com.topjohnwu.magisk.R
 import com.topjohnwu.magisk.arch.BaseFragment
@@ -103,13 +105,15 @@ class FlashFragment : BaseFragment<FragmentFlashMd2Binding>(), MenuProvider {
 
     companion object {
 
-        private fun createIntent(context: Context, args: FlashFragmentArgs) =
-            NavDeepLinkBuilder(context)
-                .setGraph(R.navigation.main)
-                .setComponentName(MainActivity::class.java.cmp(context.packageName))
-                .setDestination(R.id.flashFragment)
-                .setArguments(args.toBundle())
-                .createPendingIntent()
+        private fun createIntent(context: Context, action: String, uri: Uri?): PendingIntent {
+            val intent = Intent(context, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_FLASH_ACTION, action)
+                uri?.let { putExtra(MainActivity.EXTRA_FLASH_URI, it.toString()) }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val flag = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            return PendingIntent.getActivity(context, action.hashCode(), intent, flag)
+        }
 
         private fun flashType(isSecondSlot: Boolean) =
             if (isSecondSlot) Const.Value.FLASH_INACTIVE_SLOT else Const.Value.FLASH_MAGISK
@@ -135,10 +139,8 @@ class FlashFragment : BaseFragment<FragmentFlashMd2Binding>(), MenuProvider {
 
         /* Installing is understood as flashing modules / zips */
 
-        fun installIntent(context: Context, file: Uri) = FlashFragmentArgs(
-            action = Const.Value.FLASH_ZIP,
-            additionalData = file,
-        ).let { createIntent(context, it) }
+        fun installIntent(context: Context, file: Uri) =
+            createIntent(context, Const.Value.FLASH_ZIP, file)
 
         fun install(file: Uri) = MainDirections.actionFlashFragment(
             action = Const.Value.FLASH_ZIP,

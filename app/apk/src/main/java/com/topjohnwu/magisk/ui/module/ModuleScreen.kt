@@ -44,7 +44,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import com.topjohnwu.magisk.ui.theme.LocalEnableBlur
 import com.topjohnwu.magisk.core.R as CoreR
-import com.topjohnwu.magisk.arch.UIActivity
+import com.topjohnwu.magisk.ui.MainActivity
 import com.topjohnwu.magisk.core.download.DownloadEngine
 import com.topjohnwu.magisk.dialog.LocalModuleInstallDialog
 import com.topjohnwu.magisk.dialog.OnlineModuleInstallDialog
@@ -99,7 +99,7 @@ fun ModuleScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val uiActivity = context as? UIActivity<*>
+    val uiActivity = context as? MainActivity
     val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
