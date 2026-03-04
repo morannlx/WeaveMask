@@ -1,25 +1,66 @@
 package com.topjohnwu.magisk.dialog
 
 import android.content.Context
-import com.topjohnwu.magisk.core.R
-import com.topjohnwu.magisk.core.di.ServiceLocator
-import com.topjohnwu.magisk.core.download.DownloadEngine
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.topjohnwu.magisk.core.download.Subject
 import com.topjohnwu.magisk.core.model.module.OnlineModule
+import com.topjohnwu.magisk.ui.component.MarkdownText
 import com.topjohnwu.magisk.ui.flash.FlashFragment
-import com.topjohnwu.magisk.view.MagiskDialog
 import com.topjohnwu.magisk.view.Notifications
 import kotlinx.parcelize.Parcelize
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.topjohnwu.magisk.core.R as CoreR
 
-class OnlineModuleInstallDialog(private val item: OnlineModule) : MarkDownDialog() {
+/**
+ * 在线模块安装/更新对话框
+ * 使用 Miuix SuperDialog 实现，替代旧的 View-based MagiskDialog
+ */
+object OnlineModuleInstallDialog {
 
-    private val svc get() = ServiceLocator.networkService
+    /**
+     * 对话框状态
+     *
+     * @param visible 是否显示
+     * @param module 在线模块信息
+     * @param changelog Markdown 格式的更新日志内容（已加载完成）
+     * @param isLoadingChangelog 是否正在加载更新日志
+     * @param errorMessage 加载失败时的错误消息
+     */
+    data class DialogState(
+        val visible: Boolean = false,
+        val module: OnlineModule? = null,
+        val changelog: String? = null,
+        val isLoadingChangelog: Boolean = false,
+        val errorMessage: String? = null
+    )
 
-    override suspend fun getMarkdownText(): String {
-        val str = svc.fetchString(item.changelog)
-        return if (str.length > 1000) str.substring(0, 1000) else str
-    }
-
+    /**
+     * 下载主题，供 DownloadEngine 使用
+     */
     @Parcelize
     class Module(
         override val module: OnlineModule,
@@ -28,32 +69,131 @@ class OnlineModuleInstallDialog(private val item: OnlineModule) : MarkDownDialog
     ) : Subject.Module() {
         override fun pendingIntent(context: Context) = FlashFragment.installIntent(context, file)
     }
+}
 
-    override fun build(dialog: MagiskDialog) {
-        super.build(dialog)
-        dialog.apply {
+/**
+ * 在线模块安装对话框 Compose 组件
+ * 参考 KernelSU 的实现，使用 Miuix SuperDialog 显示更新日志和操作按钮
+ *
+ * @param state 对话框状态
+ * @param context Context
+ * @param onDismiss 关闭回调
+ * @param onDownload 下载（不安装）回调
+ * @param onInstall 下载并安装回调
+ */
+@Composable
+fun OnlineModuleInstallDialog(
+    state: OnlineModuleInstallDialog.DialogState,
+    context: Context,
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit
+) {
+    if (!state.visible || state.module == null) return
 
-            fun download(install: Boolean) {
-                DownloadEngine.startWithActivity(activity, Module(item, install))
-            }
+    val module = state.module
+    val title = context.getString(
+        CoreR.string.repo_install_title,
+        module.name, module.version, module.versionCode
+    )
 
-            val title = context.getString(R.string.repo_install_title,
-                item.name, item.version, item.versionCode)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val dialogMaxHeight = maxHeight * 0.9f
+            val changelogMaxHeight = maxHeight * 0.62f
 
-            setTitle(title)
-            setCancelable(true)
-            setButton(MagiskDialog.ButtonType.NEGATIVE) {
-                text = R.string.download
-                onClick { download(false) }
-            }
-            setButton(MagiskDialog.ButtonType.POSITIVE) {
-                text = R.string.install
-                onClick { download(true) }
-            }
-            setButton(MagiskDialog.ButtonType.NEUTRAL) {
-                text = android.R.string.cancel
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(32.dp))
+                        .background(MiuixTheme.colorScheme.background)
+                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                        .heightIn(min = 320.dp)
+                        .heightIn(max = dialogMaxHeight)
+                ) {
+                    Text(
+                        text = title,
+                        modifier = Modifier.fillMaxWidth(),
+                        fontSize = MiuixTheme.textStyles.title4.fontSize,
+                        fontWeight = FontWeight.Medium,
+                        color = MiuixTheme.colorScheme.onBackground
+                    )
+
+                    Spacer(modifier = Modifier.heightIn(min = 12.dp))
+
+                    when {
+                        state.isLoadingChangelog -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 120.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    size = 32.dp,
+                                    strokeWidth = 3.dp
+                                )
+                            }
+                        }
+                        state.errorMessage != null -> {
+                            Text(
+                                text = state.errorMessage,
+                                color = MiuixTheme.colorScheme.error,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        !state.changelog.isNullOrBlank() -> {
+                            MarkdownText(
+                                content = state.changelog,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = changelogMaxHeight)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.heightIn(min = 16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(
+                            text = context.getString(android.R.string.cancel),
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        TextButton(
+                            text = context.getString(CoreR.string.download),
+                            onClick = {
+                                onDownload()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        TextButton(
+                            text = context.getString(CoreR.string.install),
+                            onClick = {
+                                onInstall()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.textButtonColorsPrimary()
+                        )
+                    }
+                }
             }
         }
     }
-
 }

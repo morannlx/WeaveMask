@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.topjohnwu.magisk.arch.AsyncLoadViewModel
 import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.base.ContentResultCallback
+import com.topjohnwu.magisk.core.di.ServiceLocator
 import com.topjohnwu.magisk.core.model.module.LocalModule
 import com.topjohnwu.magisk.core.model.module.OnlineModule
 import com.topjohnwu.magisk.dialog.LocalModuleInstallDialog
@@ -17,9 +18,11 @@ import com.topjohnwu.magisk.events.GetContentEvent
 import com.topjohnwu.magisk.events.SnackbarEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
+import timber.log.Timber
 import com.topjohnwu.magisk.core.R as CoreR
 
 /**
@@ -57,6 +60,16 @@ class ModuleViewModel : AsyncLoadViewModel() {
 
     private val _uiState = mutableStateOf(ModuleUiState())
     val uiState: ModuleUiState get() = _uiState.value
+
+    // 在线模块安装对话框状态
+    var onlineInstallDialogState by mutableStateOf(OnlineModuleInstallDialog.DialogState())
+        private set
+
+    // 本地模块安装确认对话框状态
+    var localInstallDialogState by mutableStateOf(LocalModuleInstallDialog.DialogState())
+        private set
+
+    private var changelogLoadJob: Job? = null
 
     private var allModules: List<ModuleInfo> = emptyList()
 
@@ -221,19 +234,73 @@ class ModuleViewModel : AsyncLoadViewModel() {
         }
     }
 
-    fun downloadPressed(item: OnlineModule?) =
+    fun downloadPressed(item: OnlineModule?) {
         if (item != null && Info.isConnected.value == true) {
-            withExternalRW { OnlineModuleInstallDialog(item).show() }
+            if (onlineInstallDialogState.visible && onlineInstallDialogState.module?.id == item.id) {
+                return
+            }
+            changelogLoadJob?.cancel()
+            onlineInstallDialogState = OnlineModuleInstallDialog.DialogState(
+                visible = true,
+                module = item,
+                changelog = null,
+                isLoadingChangelog = true
+            )
+            changelogLoadJob = viewModelScope.launch {
+                loadChangelog(item)
+            }
         } else {
             SnackbarEvent(CoreR.string.no_connection).publish()
         }
+    }
+
+    private suspend fun loadChangelog(item: OnlineModule) {
+        try {
+            val text = withContext(Dispatchers.IO) {
+                ServiceLocator.networkService.fetchString(item.changelog)
+            }
+            if (!onlineInstallDialogState.visible || onlineInstallDialogState.module?.id != item.id) {
+                return
+            }
+            val changelog = if (text.length > 1000) text.substring(0, 1000) else text
+            onlineInstallDialogState = onlineInstallDialogState.copy(
+                changelog = changelog,
+                isLoadingChangelog = false
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.e(e)
+            if (!onlineInstallDialogState.visible || onlineInstallDialogState.module?.id != item.id) {
+                return
+            }
+            onlineInstallDialogState = onlineInstallDialogState.copy(
+                isLoadingChangelog = false,
+                errorMessage = e.message ?: "Failed to load changelog"
+            )
+        }
+    }
+
+    fun dismissOnlineInstallDialog() {
+        changelogLoadJob?.cancel()
+        changelogLoadJob = null
+        onlineInstallDialogState = OnlineModuleInstallDialog.DialogState()
+    }
+
+    fun dismissLocalInstallDialog() {
+        localInstallDialogState = LocalModuleInstallDialog.DialogState()
+    }
 
     fun installPressed() = withExternalRW {
         GetContentEvent("application/zip", UriCallback()).publish()
     }
 
     fun requestInstallLocalModule(uri: Uri, displayName: String) {
-        LocalModuleInstallDialog(this, uri, displayName).show()
+        localInstallDialogState = LocalModuleInstallDialog.DialogState(
+            visible = true,
+            uri = uri,
+            displayName = displayName
+        )
     }
 
     @Parcelize
@@ -258,6 +325,12 @@ class ModuleViewModel : AsyncLoadViewModel() {
      */
     fun runAction(id: String, name: String) {
         onRunAction?.invoke(id, name)
+    }
+
+    override fun onCleared() {
+        changelogLoadJob?.cancel()
+        changelogLoadJob = null
+        super.onCleared()
     }
 
     companion object {

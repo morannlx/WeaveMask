@@ -1,33 +1,87 @@
 package com.topjohnwu.magisk.dialog
 
+import android.content.Context
 import android.net.Uri
-import com.topjohnwu.magisk.MainDirections
-import com.topjohnwu.magisk.core.Const
-import com.topjohnwu.magisk.core.R
-import com.topjohnwu.magisk.events.DialogBuilder
-import com.topjohnwu.magisk.ui.module.ModuleViewModel
-import com.topjohnwu.magisk.view.MagiskDialog
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.extra.SuperDialog
+import com.topjohnwu.magisk.core.R as CoreR
 
-class LocalModuleInstallDialog(
-    private val viewModel: ModuleViewModel,
-    private val uri: Uri,
-    private val displayName: String
-) : DialogBuilder {
-    override fun build(dialog: MagiskDialog) {
-        dialog.apply {
-            setTitle(R.string.confirm_install_title)
-            setMessage(context.getString(R.string.confirm_install, displayName))
-            setButton(MagiskDialog.ButtonType.POSITIVE) {
-                text = android.R.string.ok
-                onClick {
-                    viewModel.apply {
-                        MainDirections.actionFlashFragment(Const.Value.FLASH_ZIP, uri).navigate()
-                    }
-                }
-            }
-            setButton(MagiskDialog.ButtonType.NEGATIVE) {
-                text = android.R.string.cancel
-            }
+/**
+ * 本地模块安装确认对话框
+ * 使用 Miuix SuperDialog 实现，替代旧的 View-based MagiskDialog
+ */
+object LocalModuleInstallDialog {
+
+    /**
+     * 对话框状态
+     *
+     * @param visible 是否显示
+     * @param uri 本地模块文件 URI
+     * @param displayName 模块文件显示名称
+     */
+    data class DialogState(
+        val visible: Boolean = false,
+        val uri: Uri? = null,
+        val displayName: String = ""
+    )
+}
+
+/**
+ * 本地模块安装确认对话框 Compose 组件
+ *
+ * @param state 对话框状态
+ * @param context Context
+ * @param onDismiss 关闭回调
+ * @param onConfirm 确认安装回调
+ */
+@Composable
+fun LocalModuleInstallDialog(
+    state: LocalModuleInstallDialog.DialogState,
+    context: Context,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    if (!state.visible) return
+
+    val show = remember { mutableStateOf(true) }
+        .apply { value = state.visible }
+
+    SuperDialog(
+        show = show,
+        title = context.getString(CoreR.string.confirm_install_title),
+        summary = context.getString(CoreR.string.confirm_install, state.displayName),
+        onDismissRequest = onDismiss
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            TextButton(
+                text = context.getString(android.R.string.cancel),
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(20.dp))
+            TextButton(
+                text = context.getString(android.R.string.ok),
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.textButtonColorsPrimary()
+            )
         }
     }
 }

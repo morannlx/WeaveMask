@@ -43,6 +43,10 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import com.topjohnwu.magisk.core.R as CoreR
+import com.topjohnwu.magisk.arch.UIActivity
+import com.topjohnwu.magisk.core.download.DownloadEngine
+import com.topjohnwu.magisk.dialog.LocalModuleInstallDialog
+import com.topjohnwu.magisk.dialog.OnlineModuleInstallDialog
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Button
@@ -94,6 +98,7 @@ fun ModuleScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val uiActivity = context as? UIActivity<*>
     val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
@@ -167,6 +172,35 @@ fun ModuleScreen(
     }
 
     MiuixTheme {
+        // 在线模块安装/更新对话框
+        OnlineModuleInstallDialog(
+            state = viewModel.onlineInstallDialogState,
+            context = context,
+            onDismiss = { viewModel.dismissOnlineInstallDialog() },
+            onDownload = {
+                val module = viewModel.onlineInstallDialogState.module ?: return@OnlineModuleInstallDialog
+                val subject = OnlineModuleInstallDialog.Module(module, false)
+                uiActivity?.let { DownloadEngine.startWithActivity(it, subject) }
+            },
+            onInstall = {
+                val module = viewModel.onlineInstallDialogState.module ?: return@OnlineModuleInstallDialog
+                val subject = OnlineModuleInstallDialog.Module(module, true)
+                uiActivity?.let { DownloadEngine.startWithActivity(it, subject) }
+            }
+        )
+
+        // 本地模块安装确认对话框
+        LocalModuleInstallDialog(
+            state = viewModel.localInstallDialogState,
+            context = context,
+            onDismiss = { viewModel.dismissLocalInstallDialog() },
+            onConfirm = {
+                val uri = viewModel.localInstallDialogState.uri ?: return@LocalModuleInstallDialog
+                viewModel.dismissLocalInstallDialog()
+                onInstallModuleFromLocal(uri)
+            }
+        )
+
         Scaffold(
             modifier = modifier,
             topBar = {
