@@ -201,7 +201,7 @@ fun HomeScreen(
             item {
                 MagiskCard(
                     magiskState = viewModel.magiskState,
-                    installedVersion = viewModel.magiskInstalledVersion.toString(),
+                    installedVersion = viewModel.magiskInstalledVersion.getText(context.resources).toString(),
                     onPressed = onNavigateToInstall
                 )
             }
@@ -358,8 +358,13 @@ private fun MagiskCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    StatusLabel(state = magiskState)
+                   Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = installedVersion,
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 when (magiskState) {
@@ -428,26 +433,7 @@ private fun MagiskCard(
     }
 }
 
-/**
- * 状态标签
- * 根据不同状态显示不同颜色的标签
- */
-@Composable
-private fun StatusLabel(state: HomeViewModel.State) {
-    val context = LocalContext.current
-    val (text, color) = when (state) {
-        HomeViewModel.State.UP_TO_DATE -> context.getString(CoreR.string.home_latest_version) to MiuixTheme.colorScheme.primary
-        HomeViewModel.State.OUTDATED -> context.getString(CoreR.string.update) to MiuixTheme.colorScheme.error
-        HomeViewModel.State.INVALID -> context.getString(CoreR.string.not_available) to MiuixTheme.colorScheme.onSurfaceContainer
-        HomeViewModel.State.LOADING -> context.getString(CoreR.string.loading) to MiuixTheme.colorScheme.onSurfaceContainer
-    }
-    Text(
-        text = text,
-        style = MiuixTheme.textStyles.footnote1,
-        color = color,
-        fontWeight = FontWeight.Medium
-    )
-}
+
 
 /**
  * Zygisk 状态卡片
