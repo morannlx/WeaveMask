@@ -170,6 +170,18 @@ class WebViewInterface(private val state: WebUIState) {
     fun enableInsets(enable: Boolean = true) = enableEdgeToEdge(enable)
 
     @JavascriptInterface
+    fun listPackages(type: String): String {
+        val context = webView?.context ?: return JSONArray().toString()
+        return WebUiPackageRegistry.listPackages(context, type)
+    }
+
+    @JavascriptInterface
+    fun getPackagesInfo(packageNamesJson: String): String {
+        val context = webView?.context ?: return JSONArray().toString()
+        return WebUiPackageRegistry.getPackagesInfo(context, packageNamesJson)
+    }
+
+    @JavascriptInterface
     fun exit() {
         state.requestExit()
     }

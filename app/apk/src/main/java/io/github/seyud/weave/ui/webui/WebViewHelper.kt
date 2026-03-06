@@ -68,7 +68,23 @@ internal suspend fun prepareWebView(
                     view: WebView,
                     request: WebResourceRequest
                 ): WebResourceResponse? {
-                    return webViewAssetLoader.shouldInterceptRequest(request.url)
+                    val url = request.url
+                    if (url.scheme.equals("ksu", ignoreCase = true) && url.host.equals("icon", ignoreCase = true)) {
+                        val packageName = url.path?.removePrefix("/")
+                        if (!packageName.isNullOrEmpty()) {
+                            val icon = WebUiPackageRegistry.loadAppIcon(activity, packageName, 512)
+                            if (icon != null) {
+                                val stream = java.io.ByteArrayOutputStream()
+                                icon.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+                                return WebResourceResponse(
+                                    "image/png",
+                                    null,
+                                    java.io.ByteArrayInputStream(stream.toByteArray())
+                                )
+                            }
+                        }
+                    }
+                    return webViewAssetLoader.shouldInterceptRequest(url)
                 }
 
                 override fun doUpdateVisitedHistory(
