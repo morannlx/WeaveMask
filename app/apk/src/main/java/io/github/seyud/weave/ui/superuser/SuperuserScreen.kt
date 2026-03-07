@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.automirrored.filled.Article
 import android.os.Process
+import androidx.compose.foundation.lazy.LazyListScope
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,8 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -36,11 +37,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import io.github.seyud.weave.core.model.su.SuPolicy
@@ -48,8 +49,10 @@ import io.github.seyud.weave.dialog.SuperuserRevokeDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
+import io.github.seyud.weave.ui.component.SearchBox
+import io.github.seyud.weave.ui.component.SearchPager
+import io.github.seyud.weave.ui.component.SearchStatus
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
 import io.github.seyud.weave.core.R as CoreR
 import top.yukonga.miuix.kmp.basic.Button
@@ -65,7 +68,6 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -93,9 +95,10 @@ fun SuperuserScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val layoutDirection = LocalLayoutDirection.current
     val uiState by viewModel.uiState.collectAsState()
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
-    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var searchStatus by remember { mutableStateOf(SearchStatus(label = "搜索应用")) }
     var expandedPolicyKeys by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val showTopPopup = remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
@@ -110,6 +113,13 @@ fun SuperuserScreen(
     } else {
         HazeStyle.Unspecified
     }
+    val uiSearchStatus = searchStatus.copy(
+        resultStatus = when {
+            uiState.isLoading -> SearchStatus.ResultStatus.LOAD
+            uiState.policies.isEmpty() -> SearchStatus.ResultStatus.EMPTY
+            else -> SearchStatus.ResultStatus.SHOW
+        }
+    )
 
     // 撤销对话框状态
     val revokeDialogState = uiState.revokeDialogState
@@ -131,6 +141,12 @@ fun SuperuserScreen(
         }
     }
 
+    LaunchedEffect(searchStatus.searchText) {
+        if (uiState.query != searchStatus.searchText) {
+            viewModel.setQuery(searchStatus.searchText)
+        }
+    }
+
     // 显示撤销权限确认对话框
     SuperuserRevokeDialog(
         state = revokeDialogState,
@@ -147,122 +163,153 @@ fun SuperuserScreen(
     MiuixTheme {
         Scaffold(
             modifier = modifier,
+            popupHost = {
+                uiSearchStatus.SearchPager(
+                    onSearchStatusChange = { searchStatus = it },
+                    defaultResult = {},
+                    resultModifier = Modifier.padding(horizontal = 16.dp),
+                    resultContentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding),
+                ) {
+                    policyItems(
+                        policies = uiState.policies,
+                        expandedPolicyKeys = expandedPolicyKeys,
+                        onToggleExpanded = { key ->
+                            expandedPolicyKeys = if (expandedPolicyKeys.contains(key)) {
+                                expandedPolicyKeys - key
+                            } else {
+                                expandedPolicyKeys + key
+                            }
+                        },
+                        onDelete = { key ->
+                            pendingRevokeKey = key
+                            viewModel.onRevokePressed(key)
+                        },
+                        onUpdateNotify = { key -> viewModel.toggleNotifyByKey(key) },
+                        onUpdateLogging = { key -> viewModel.toggleLogByKey(key) },
+                        onUpdatePolicy = { key, policy -> viewModel.updatePolicyByKey(key, policy) }
+                    )
+                }
+            },
             contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
             topBar = {
-                TopAppBar(
-                    modifier = if (enableBlur) {
-                        Modifier.hazeEffect(hazeState) {
-                            style = hazeStyle
-                            blurRadius = 30.dp
-                            noiseFactor = 0f
-                        }
-                    } else Modifier,
-                    color = if (enableBlur) Color.Transparent else MiuixTheme.colorScheme.surface,
-                    title = context.getString(CoreR.string.superuser),
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        SuperListPopup(
-                            show = showTopPopup,
-                            popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
-                            alignment = PopupPositionProvider.Align.TopEnd,
-                            onDismissRequest = {
-                                showTopPopup.value = false
+                uiSearchStatus.TopAppBarAnim(
+                    hazeState = if (enableBlur) hazeState else null,
+                    hazeStyle = if (enableBlur) hazeStyle else null,
+                ) {
+                    TopAppBar(
+                        color = if (enableBlur) Color.Transparent else MiuixTheme.colorScheme.surface,
+                        title = context.getString(CoreR.string.superuser),
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            SuperListPopup(
+                                show = showTopPopup,
+                                popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
+                                alignment = PopupPositionProvider.Align.TopEnd,
+                                onDismissRequest = {
+                                    showTopPopup.value = false
+                                }
+                            ) {
+                                ListPopupColumn {
+                                    DropdownImpl(
+                                        text = if (uiState.showSystemApps) "隐藏系统应用" else "显示系统应用",
+                                        isSelected = uiState.showSystemApps,
+                                        optionSize = 1,
+                                        onSelectedIndexChange = {
+                                            viewModel.toggleShowSystemApps()
+                                            showTopPopup.value = false
+                                        },
+                                        index = 0
+                                    )
+                                }
                             }
-                        ) {
-                            ListPopupColumn {
-                                DropdownImpl(
-                                    text = if (uiState.showSystemApps) "隐藏系统应用" else "显示系统应用",
-                                    isSelected = uiState.showSystemApps,
-                                    optionSize = 1,
-                                    onSelectedIndexChange = {
-                                        viewModel.toggleShowSystemApps()
-                                        showTopPopup.value = false
-                                    },
-                                    index = 0
+                            IconButton(
+                                modifier = Modifier.padding(end = 16.dp),
+                                onClick = {
+                                    showTopPopup.value = true
+                                },
+                                holdDownState = showTopPopup.value
+                            ) {
+                                Icon(
+                                    imageVector = MiuixIcons.MoreCircle,
+                                    contentDescription = null
                                 )
                             }
                         }
-                        IconButton(
-                            modifier = Modifier.padding(end = 16.dp),
-                            onClick = {
-                                showTopPopup.value = true
-                            },
-                            holdDownState = showTopPopup.value
-                        ) {
-                            Icon(
-                                imageVector = MiuixIcons.MoreCircle,
-                                contentDescription = null
-                            )
-                        }
-                    }
-                )
+                    )
+                }
             },
-            content = { paddingValues ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                ) {
-                    SearchBar(
-                        inputField = {
-                            InputField(
-                                query = uiState.query,
-                                onQueryChange = viewModel::setQuery,
-                                onSearch = { },
-                                expanded = searchExpanded,
-                                onExpandedChange = { searchExpanded = it },
-                                label = "搜索应用"
-                            )
-                        },
-                        insideMargin = DpSize(12.dp, 12.dp),
-                        onExpandedChange = { searchExpanded = it },
-                        expanded = searchExpanded
-                    ) {
-                    }
-
-                    when {
-                        uiState.isLoading && uiState.policies.isEmpty() -> {
-                            LoadingContent()
+            content = { innerPadding ->
+                uiSearchStatus.SearchBox(
+                    onSearchStatusChange = { searchStatus = it },
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding(),
+                        start = innerPadding.calculateStartPadding(layoutDirection),
+                        end = innerPadding.calculateEndPadding(layoutDirection)
+                    ),
+                    hazeState = if (enableBlur) hazeState else null,
+                    hazeStyle = if (enableBlur) hazeStyle else null
+                ) { boxHeight ->
+                    PullToRefresh(
+                        modifier = Modifier.fillMaxSize(),
+                        isRefreshing = uiState.isRefreshing,
+                        pullToRefreshState = pullToRefreshState,
+                        contentPadding = PaddingValues(top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp),
+                        topAppBarScrollBehavior = scrollBehavior,
+                        refreshTexts = listOf(
+                            context.getString(CoreR.string.pull_down_to_refresh),
+                            context.getString(CoreR.string.release_to_refresh),
+                            context.getString(CoreR.string.refreshing),
+                            context.getString(CoreR.string.refreshed_successfully)
+                        ),
+                        onRefresh = {
+                            if (!uiState.isRefreshing) {
+                                viewModel.refresh()
+                            }
                         }
-                        else -> {
-                            PullToRefresh(
-                                isRefreshing = uiState.isRefreshing,
-                                pullToRefreshState = pullToRefreshState,
-                                refreshTexts = listOf(
-                                    context.getString(CoreR.string.pull_down_to_refresh),
-                                    context.getString(CoreR.string.release_to_refresh),
-                                    context.getString(CoreR.string.refreshing),
-                                    context.getString(CoreR.string.refreshed_successfully)
-                                ),
-                                onRefresh = {
-                                    if (!uiState.isRefreshing) {
-                                        viewModel.refresh()
-                                    }
-                                }
-                            ) {
-                                if (uiState.policies.isEmpty()) {
-                                    EmptyContent()
-                                } else {
-                                    PolicyList(
-                                        policies = uiState.policies,
-                                        viewModel = viewModel,
-                                        bottomPadding = bottomPadding,
-                                        expandedPolicyKeys = expandedPolicyKeys,
-                                        onToggleExpanded = { key ->
-                                            expandedPolicyKeys = if (expandedPolicyKeys.contains(key)) {
-                                                expandedPolicyKeys - key
-                                            } else {
-                                                expandedPolicyKeys + key
-                                            }
-                                        },
-                                        onDelete = { key ->
-                                            pendingRevokeKey = key
-                                            viewModel.onRevokePressed(key)
-                                        },
-                                        nestedScrollConnection = scrollBehavior.nestedScrollConnection,
-                                        hazeState = hazeState
+                    ) {
+                        when {
+                            uiState.isLoading && uiState.policies.isEmpty() -> {
+                                LoadingContent(
+                                    modifier = Modifier.padding(
+                                        top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
+                                        start = innerPadding.calculateStartPadding(layoutDirection),
+                                        end = innerPadding.calculateEndPadding(layoutDirection),
+                                        bottom = bottomPadding
                                     )
-                                }
+                                )
+                            }
+                            uiState.policies.isEmpty() -> {
+                                EmptyContent(
+                                    modifier = Modifier.padding(
+                                        top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
+                                        start = innerPadding.calculateStartPadding(layoutDirection),
+                                        end = innerPadding.calculateEndPadding(layoutDirection),
+                                        bottom = bottomPadding
+                                    )
+                                )
+                            }
+                            else -> {
+                                PolicyList(
+                                    policies = uiState.policies,
+                                    viewModel = viewModel,
+                                    enableBlur = enableBlur,
+                                    hazeState = hazeState,
+                                    bottomPadding = bottomPadding,
+                                    topContentPadding = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
+                                    expandedPolicyKeys = expandedPolicyKeys,
+                                    onToggleExpanded = { key ->
+                                        expandedPolicyKeys = if (expandedPolicyKeys.contains(key)) {
+                                            expandedPolicyKeys - key
+                                        } else {
+                                            expandedPolicyKeys + key
+                                        }
+                                    },
+                                    onDelete = { key ->
+                                        pendingRevokeKey = key
+                                        viewModel.onRevokePressed(key)
+                                    },
+                                    nestedScrollConnection = scrollBehavior.nestedScrollConnection
+                                )
                             }
                         }
                     }
@@ -276,10 +323,12 @@ fun SuperuserScreen(
  * 加载状态显示
  */
 @Composable
-private fun LoadingContent() {
+private fun LoadingContent(
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -300,10 +349,12 @@ private fun LoadingContent() {
  * 空状态显示
  */
 @Composable
-private fun EmptyContent() {
+private fun EmptyContent(
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -328,24 +379,24 @@ private fun EmptyContent() {
 private fun PolicyList(
     policies: List<PolicyCardUiState>,
     viewModel: SuperuserViewModel,
+    enableBlur: Boolean,
+    hazeState: HazeState,
     bottomPadding: Dp,
+    topContentPadding: Dp,
     expandedPolicyKeys: List<String>,
     onToggleExpanded: (String) -> Unit,
     onDelete: (String) -> Unit,
-    nestedScrollConnection: NestedScrollConnection,
-    hazeState: HazeState
+    nestedScrollConnection: NestedScrollConnection
 ) {
-    val enableBlur = LocalEnableBlur.current
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .then(if (enableBlur) Modifier.hazeSource(state = hazeState) else Modifier)
             .nestedScroll(nestedScrollConnection),
+        contentPadding = PaddingValues(top = topContentPadding, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item { Spacer(modifier = Modifier.height(8.dp)) }
-
         items(
             items = policies,
             key = { it.key }
@@ -362,10 +413,32 @@ private fun PolicyList(
             )
         }
 
-        // 底部间距 - 使用传入的 bottomPadding 确保最后一个卡片内容可以正常显示
-        item {
-            Spacer(modifier = Modifier.height(bottomPadding))
-        }
+    }
+}
+
+private fun LazyListScope.policyItems(
+    policies: List<PolicyCardUiState>,
+    expandedPolicyKeys: List<String>,
+    onToggleExpanded: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onUpdateNotify: (String) -> Unit,
+    onUpdateLogging: (String) -> Unit,
+    onUpdatePolicy: (String, Int) -> Unit,
+) {
+    items(
+        items = policies,
+        key = { it.key }
+    ) { policyItem ->
+        val policyKey = policyItem.key
+        PolicyItem(
+            item = policyItem,
+            isExpanded = expandedPolicyKeys.contains(policyKey),
+            onToggleExpanded = { onToggleExpanded(policyKey) },
+            onDelete = { onDelete(policyKey) },
+            onUpdateNotify = { onUpdateNotify(policyKey) },
+            onUpdateLogging = { onUpdateLogging(policyKey) },
+            onUpdatePolicy = { policy -> onUpdatePolicy(policyKey, policy) }
+        )
     }
 }
 

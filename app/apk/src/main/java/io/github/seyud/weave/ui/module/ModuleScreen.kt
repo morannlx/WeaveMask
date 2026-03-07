@@ -11,6 +11,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,8 +42,10 @@ import androidx.compose.foundation.layout.Box
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
+import io.github.seyud.weave.ui.component.SearchBox
+import io.github.seyud.weave.ui.component.SearchPager
+import io.github.seyud.weave.ui.component.SearchStatus
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
 import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.ui.MainActivity
@@ -54,7 +58,6 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
@@ -104,9 +107,11 @@ fun ModuleScreen(
 ) {
     val context = LocalContext.current
     val uiActivity = context as? MainActivity
+    val layoutDirection = LocalLayoutDirection.current
     val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
+    var searchStatus by remember { mutableStateOf(SearchStatus(label = "搜索模块")) }
     val showTopPopup = remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
     val localModulePicker = rememberLauncherForActivityResult(
@@ -165,6 +170,13 @@ fun ModuleScreen(
         HazeStyle.Unspecified
     }
     val scrollBehavior = MiuixScrollBehavior()
+    val uiSearchStatus = searchStatus.copy(
+        resultStatus = when {
+            uiState.isLoading -> SearchStatus.ResultStatus.LOAD
+            uiState.modules.isEmpty() -> SearchStatus.ResultStatus.EMPTY
+            else -> SearchStatus.ResultStatus.SHOW
+        }
+    )
 
     // 设置运行模块操作的回调
     DisposableEffect(onRunAction) {
@@ -178,6 +190,12 @@ fun ModuleScreen(
         if (!hasStartedLoading) {
             hasStartedLoading = true
             viewModel.startLoading()
+        }
+    }
+
+    LaunchedEffect(searchStatus.searchText) {
+        if (uiState.query != searchStatus.searchText) {
+            viewModel.setQuery(searchStatus.searchText)
         }
     }
 
@@ -213,21 +231,26 @@ fun ModuleScreen(
 
         Scaffold(
             modifier = modifier,
+            popupHost = {
+                uiSearchStatus.SearchPager(
+                    onSearchStatusChange = { searchStatus = it },
+                    defaultResult = {},
+                    resultModifier = Modifier.padding(horizontal = 16.dp),
+                    resultContentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding),
+                ) {
+                    moduleItems(
+                        modules = uiState.modules,
+                        viewModel = viewModel,
+                        onOpenWebUi = onOpenWebUi
+                    )
+                }
+            },
             contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
             topBar = {
-                // 使用 Box 包裹 TopAppBar 来实现 haze 模糊效果
-                Box {
-                    if (enableBlur) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .hazeEffect(hazeState) {
-                                    style = hazeStyle
-                                    blurRadius = 30.dp
-                                    noiseFactor = 0f
-                                }
-                        )
-                    }
+                uiSearchStatus.TopAppBarAnim(
+                    hazeState = if (enableBlur) hazeState else null,
+                    hazeStyle = if (enableBlur) hazeStyle else null,
+                ) {
                     TopAppBar(
                         color = if (enableBlur) Color.Transparent else MiuixTheme.colorScheme.surface,
                         title = context.getString(CoreR.string.modules),
@@ -296,68 +319,77 @@ fun ModuleScreen(
                     )
                 }
             },
-            content = { paddingValues ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (enableBlur) Modifier.hazeSource(state = hazeState) else Modifier)
-                        .padding(paddingValues)
-                ) {
-                    // 搜索框放在内容区域，带有水平间距
-                    InputField(
-                        query = uiState.query,
-                        onQueryChange = viewModel::setQuery,
-                        onSearch = { },
-                        expanded = false,
-                        onExpandedChange = { },
-                        label = "搜索模块",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 12.dp)
-                    )
-
-                    when {
-                        uiState.isLoading && uiState.modules.isEmpty() -> {
-                            LoadingContent()
+            content = { innerPadding ->
+                uiSearchStatus.SearchBox(
+                    onSearchStatusChange = { searchStatus = it },
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding(),
+                        start = innerPadding.calculateStartPadding(layoutDirection),
+                        end = innerPadding.calculateEndPadding(layoutDirection)
+                    ),
+                    hazeState = if (enableBlur) hazeState else null,
+                    hazeStyle = if (enableBlur) hazeStyle else null,
+                ) { boxHeight ->
+                    PullToRefresh(
+                        modifier = Modifier.fillMaxSize(),
+                        isRefreshing = uiState.isRefreshing,
+                        pullToRefreshState = pullToRefreshState,
+                        contentPadding = PaddingValues(top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp),
+                        topAppBarScrollBehavior = scrollBehavior,
+                        refreshTexts = listOf(
+                            context.getString(CoreR.string.pull_down_to_refresh),
+                            context.getString(CoreR.string.release_to_refresh),
+                            context.getString(CoreR.string.refreshing),
+                            context.getString(CoreR.string.refreshed_successfully)
+                        ),
+                        onRefresh = {
+                            if (!uiState.isRefreshing) {
+                                viewModel.refresh()
+                            }
                         }
-                        else -> {
-                            PullToRefresh(
-                                isRefreshing = uiState.isRefreshing,
-                                pullToRefreshState = pullToRefreshState,
-                                refreshTexts = listOf(
-                                    context.getString(CoreR.string.pull_down_to_refresh),
-                                    context.getString(CoreR.string.release_to_refresh),
-                                    context.getString(CoreR.string.refreshing),
-                                    context.getString(CoreR.string.refreshed_successfully)
-                                ),
-                                onRefresh = {
-                                    if (!uiState.isRefreshing) {
-                                        viewModel.refresh()
-                                    }
-                                }
-                            ) {
-                                if (uiState.modules.isEmpty()) {
-                                    EmptyContent(
-                                        onInstallPressed = {
-                                            localModulePicker.launch(
-                                                arrayOf("application/zip", "application/octet-stream")
-                                            )
-                                        }
+                    ) {
+                        when {
+                            uiState.isLoading && uiState.modules.isEmpty() -> {
+                                LoadingContent(
+                                    modifier = Modifier.padding(
+                                        top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
+                                        start = innerPadding.calculateStartPadding(layoutDirection),
+                                        end = innerPadding.calculateEndPadding(layoutDirection),
+                                        bottom = bottomPadding
                                     )
-                                } else {
-                                    ModuleList(
-                                        viewModel = viewModel,
-                                        modules = uiState.modules,
-                                        onInstallPressed = {
-                                            localModulePicker.launch(
-                                                arrayOf("application/zip", "application/octet-stream")
-                                            )
-                                        },
-                                        onOpenWebUi = onOpenWebUi,
-                                        bottomPadding = bottomPadding,
-                                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+                                )
+                            }
+                            uiState.modules.isEmpty() -> {
+                                EmptyContent(
+                                    onInstallPressed = {
+                                        localModulePicker.launch(
+                                            arrayOf("application/zip", "application/octet-stream")
+                                        )
+                                    },
+                                    modifier = Modifier.padding(
+                                        top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
+                                        start = innerPadding.calculateStartPadding(layoutDirection),
+                                        end = innerPadding.calculateEndPadding(layoutDirection),
+                                        bottom = bottomPadding
                                     )
-                                }
+                                )
+                            }
+                            else -> {
+                                ModuleList(
+                                    viewModel = viewModel,
+                                    modules = uiState.modules,
+                                    enableBlur = enableBlur,
+                                    hazeState = hazeState,
+                                    onInstallPressed = {
+                                        localModulePicker.launch(
+                                            arrayOf("application/zip", "application/octet-stream")
+                                        )
+                                    },
+                                    onOpenWebUi = onOpenWebUi,
+                                    topContentPadding = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
+                                    bottomPadding = bottomPadding,
+                                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+                                )
                             }
                         }
                     }
@@ -371,10 +403,12 @@ fun ModuleScreen(
  * 加载状态显示
  */
 @Composable
-private fun LoadingContent() {
+private fun LoadingContent(
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -396,11 +430,12 @@ private fun LoadingContent() {
  */
 @Composable
 private fun EmptyContent(
-    onInstallPressed: () -> Unit
+    onInstallPressed: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -429,22 +464,24 @@ private fun EmptyContent(
 private fun ModuleList(
     viewModel: ModuleViewModel,
     modules: List<ModuleInfo>,
+    enableBlur: Boolean,
+    hazeState: HazeState,
     onInstallPressed: () -> Unit,
     onOpenWebUi: (String, String) -> Unit,
+    topContentPadding: Dp,
     bottomPadding: Dp,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .then(if (enableBlur) Modifier.hazeSource(state = hazeState) else Modifier),
+        contentPadding = PaddingValues(top = topContentPadding, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item { Spacer(modifier = Modifier.height(8.dp)) }
-
         item {
             InstallModuleEntryButton(onClick = onInstallPressed)
-            Spacer(modifier = Modifier.height(8.dp))
         }
 
         items(
@@ -457,10 +494,23 @@ private fun ModuleList(
                 onOpenWebUi = onOpenWebUi
             )
         }
+    }
+}
 
-        item {
-            Spacer(modifier = Modifier.height(bottomPadding))
-        }
+private fun LazyListScope.moduleItems(
+    modules: List<ModuleInfo>,
+    viewModel: ModuleViewModel,
+    onOpenWebUi: (String, String) -> Unit,
+) {
+    items(
+        items = modules,
+        key = { it.id }
+    ) { module ->
+        ModuleItem(
+            module = module,
+            viewModel = viewModel,
+            onOpenWebUi = onOpenWebUi
+        )
     }
 }
 
