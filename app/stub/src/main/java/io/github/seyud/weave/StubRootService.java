@@ -28,7 +28,7 @@ public class StubRootService extends ContextWrapper {
             PackageManager pm = base.getPackageManager();
             PackageInfo pkgInfo = pm.getPackageArchiveInfo(apk.getPath(), 0);
             loader.loadClass(pkgInfo.applicationInfo.className)
-                    .getConstructor(Object.class)
+                    .getDeclaredConstructor(Object.class)
                     .newInstance(data.getObject());
 
             // Create the actual RootService and call its attachBaseContext

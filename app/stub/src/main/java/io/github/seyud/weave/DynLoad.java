@@ -165,7 +165,9 @@ public class DynLoad {
                 if (appInfo.appComponentFactory == null) {
                     delegate.receiver = new AppComponentFactory();
                 } else {
-                    Object factory = cl.loadClass(appInfo.appComponentFactory).newInstance();
+                    Object factory = cl.loadClass(appInfo.appComponentFactory)
+                            .getDeclaredConstructor()
+                            .newInstance();
                     delegate.receiver = (AppComponentFactory) factory;
                 }
             }

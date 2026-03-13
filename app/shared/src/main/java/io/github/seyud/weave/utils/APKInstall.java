@@ -36,6 +36,7 @@ public final class APKInstall {
         }
     }
 
+    @SuppressWarnings("deprecation")
     public static void registerReceiver(
             Context context, BroadcastReceiver receiver, IntentFilter filter) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -65,13 +65,27 @@ public class DelegateComponentFactory extends AppComponentFactory {
         return create(className, DummyProvider.class);
     }
 
+    @SuppressWarnings("unchecked")
     private <T> T create(String name, Class<T> fallback)
             throws IllegalAccessException, InstantiationException {
         try {
-            // noinspection unchecked
-            return (T) DynLoad.activeClassLoader.loadClass(name).newInstance();
+            return (T) DynLoad.activeClassLoader.loadClass(name)
+                    .getDeclaredConstructor()
+                    .newInstance();
         } catch (ClassNotFoundException e) {
-            return fallback.newInstance();
+            try {
+                return fallback.getDeclaredConstructor().newInstance();
+            } catch (java.lang.reflect.InvocationTargetException
+                     | NoSuchMethodException ex) {
+                InstantiationException ie = new InstantiationException();
+                ie.initCause(ex);
+                throw ie;
+            }
+        } catch (java.lang.reflect.InvocationTargetException
+                 | NoSuchMethodException ex) {
+            InstantiationException ie = new InstantiationException();
+            ie.initCause(ex);
+            throw ie;
         }
     }
 

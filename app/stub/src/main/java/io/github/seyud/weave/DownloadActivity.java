@@ -1,20 +1,17 @@
 package io.github.seyud.weave;
 
-import static android.R.string.no;
+import static android.R.string.cancel;
 import static android.R.string.ok;
-import static android.R.string.yes;
 import static io.github.seyud.weave.R.string.dling;
 import static io.github.seyud.weave.R.string.no_internet_msg;
 import static io.github.seyud.weave.R.string.upgrade_msg;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.loader.ResourcesLoader;
 import android.content.res.loader.ResourcesProvider;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
@@ -22,6 +19,7 @@ import android.system.Os;
 import android.system.OsConstants;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
+import android.widget.ProgressBar;
 
 import io.github.seyud.weave.net.Networking;
 import io.github.seyud.weave.net.Request;
@@ -32,6 +30,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -46,6 +46,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class DownloadActivity extends Activity {
 
     private static final String APP_NAME = "Magisk";
+    private static final ExecutorService DOWNLOAD_EXECUTOR = Executors.newCachedThreadPool();
 
     private Context themed;
     private boolean dynLoad;
@@ -99,15 +100,20 @@ public class DownloadActivity extends Activity {
                 .setCancelable(false)
                 .setTitle(APP_NAME)
                 .setMessage(getString(upgrade_msg))
-                .setPositiveButton(yes, (d, w) -> dlAPK())
-                .setNegativeButton(no, (d, w) -> finish())
+                .setPositiveButton(ok, (d, w) -> dlAPK())
+                .setNegativeButton(cancel, (d, w) -> finish())
                 .show();
     }
 
     private void dlAPK() {
-        ProgressDialog.show(themed, getString(dling), getString(dling) + " " + APP_NAME, true);
+        new AlertDialog.Builder(themed)
+                .setCancelable(false)
+                .setTitle(getString(dling))
+                .setMessage(getString(dling) + " " + APP_NAME)
+                .setView(new ProgressBar(themed))
+                .show();
         // Download and upgrade the app
-        var request = request(BuildConfig.APK_URL).setExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        var request = request(BuildConfig.APK_URL).setExecutor(DOWNLOAD_EXECUTOR);
         if (dynLoad) {
             request.getAsFile(StubApk.current(this), file -> StubApk.restartProcess(this));
         } else {

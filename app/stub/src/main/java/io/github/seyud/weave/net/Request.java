@@ -1,7 +1,5 @@
 package io.github.seyud.weave.net;
 
-import android.os.AsyncTask;
-
 import io.github.seyud.weave.utils.APKInstall;
 
 import org.json.JSONArray;
@@ -21,9 +19,12 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.util.Scanner;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Request {
     private final HttpURLConnection conn;
+    private static final ExecutorService REQUEST_EXECUTOR = Executors.newCachedThreadPool();
     private Executor executor = null;
     private int code = -1;
 
@@ -147,7 +148,7 @@ public class Request {
     }
 
     private <T> void submit(Requestor<T> req, ResponseListener<T> rs) {
-        AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
+        REQUEST_EXECUTOR.execute(() -> {
             try {
                 T t = req.request();
                 Runnable cb = () -> rs.onResponse(t);

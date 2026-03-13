@@ -107,6 +107,7 @@ public class StubApk {
 
         public int getVersion() { return (int) arr[STUB_VERSION]; }
         public void setVersion(int version) { arr[STUB_VERSION] = version; }
+        @SuppressWarnings("unchecked")
         public Map<String, String> getClassToComponent() {
             // noinspection unchecked
             return (Map<String, String>) arr[CLASS_COMPONENT_MAP];
