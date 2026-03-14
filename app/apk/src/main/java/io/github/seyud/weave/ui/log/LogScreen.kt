@@ -179,7 +179,8 @@ fun LogScreen(
         val tabRowHeight = 40.dp
         val tabRowTopPadding = padding.calculateTopPadding()
         val tabRowContentPadding = tabRowTopPadding + tabRowHeight + 6.dp
-        val contentStartPadding = padding.calculateStartPadding(layoutDirection) + 12.dp
+        val contentStartPadding = padding.
+        calculateStartPadding(layoutDirection) + 12.dp
         val contentEndPadding = padding.calculateEndPadding(layoutDirection) + 12.dp
         val contentBottomPadding = padding.calculateBottomPadding() + 88.dp
 

@@ -16,6 +16,7 @@ import io.github.seyud.weave.arch.ActivityExecutor
 import io.github.seyud.weave.arch.AsyncLoadViewModel
 import io.github.seyud.weave.arch.ContextExecutor
 import io.github.seyud.weave.arch.ViewEvent
+import io.github.seyud.weave.core.AppContext
 import io.github.seyud.weave.core.BuildConfig
 import io.github.seyud.weave.core.Config
 import io.github.seyud.weave.core.Info
@@ -119,7 +120,7 @@ class HomeViewModel(
      * 应用包名
      */
     val managerPackageName
-        get() = BuildConfig.APP_PACKAGE_NAME
+        get() = AppContext.packageName
 
     @get:Bindable
     var stateManagerProgress = 0
