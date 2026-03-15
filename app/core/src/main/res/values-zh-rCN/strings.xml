@@ -95,10 +95,14 @@
     <!--SafetyNet-->
 
     <!--MagiskHide-->
+    <string name="hide_system_app_action">隐藏系统应用</string>
     <string name="show_system_app">显示系统应用</string>
     <string name="show_os_app">显示操作系统</string>
     <string name="hide_filter_hint">按名称过滤</string>
     <string name="hide_search">搜索</string>
+    <string name="search_apps_label">搜索应用</string>
+    <string name="clear_search_action">清除搜索</string>
+    <string name="more_options_description">更多选项</string>
 
     <!--Module-->
     <string name="no_info_provided">（未提供信息）</string>
@@ -114,6 +118,10 @@
     <string name="module_state_restore">还原</string>
     <string name="module_action_install_external">从本地安装</string>
     <string name="update_available">可更新</string>
+    <string name="search_modules_label">搜索模块</string>
+    <string name="module_sort_enabled_first_label">已启用优先</string>
+    <string name="module_sort_update_first_label">可更新优先</string>
+    <string name="module_sort_executable_first_label">可执行优先</string>
     <string name="suspend_text_riru">%1$s 已启用，此模块暂停加载</string>
     <string name="suspend_text_zygisk">%1$s 未启用，此模块暂停加载</string>
     <string name="zygisk_module_unloaded">存在兼容性问题，此模块未加载</string>

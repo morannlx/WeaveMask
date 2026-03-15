@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -116,7 +117,10 @@ fun ModuleScreen(
     val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
-    var searchStatus by remember { mutableStateOf(SearchStatus(label = "搜索模块")) }
+    val searchModulesLabel = stringResource(CoreR.string.search_modules_label)
+    var searchStatus by remember(searchModulesLabel) {
+        mutableStateOf(SearchStatus(label = searchModulesLabel))
+    }
     val showTopPopup = remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
     val localModulePicker = rememberLauncherForActivityResult(
@@ -288,7 +292,7 @@ fun ModuleScreen(
                             ) {
                                 ListPopupColumn {
                                     DropdownImpl(
-                                        text = "已启用优先",
+                                        text = stringResource(CoreR.string.module_sort_enabled_first_label),
                                         isSelected = uiState.sortEnabledFirst,
                                         optionSize = 3,
                                         onSelectedIndexChange = {
@@ -297,7 +301,7 @@ fun ModuleScreen(
                                         index = 0
                                     )
                                     DropdownImpl(
-                                        text = "可更新优先",
+                                        text = stringResource(CoreR.string.module_sort_update_first_label),
                                         isSelected = uiState.sortUpdateFirst,
                                         optionSize = 3,
                                         onSelectedIndexChange = {
@@ -306,7 +310,7 @@ fun ModuleScreen(
                                         index = 1
                                     )
                                     DropdownImpl(
-                                        text = "可执行优先",
+                                        text = stringResource(CoreR.string.module_sort_executable_first_label),
                                         isSelected = uiState.sortExecutableFirst,
                                         optionSize = 3,
                                         onSelectedIndexChange = {
@@ -326,7 +330,7 @@ fun ModuleScreen(
                             ) {
                                 Icon(
                                     imageVector = MiuixIcons.MoreCircle,
-                                    contentDescription = null
+                                    contentDescription = stringResource(CoreR.string.more_options_description)
                                 )
                             }
 

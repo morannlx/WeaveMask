@@ -9,7 +9,8 @@
     <string name="twitter" translatable="false">Twitter</string>
     <string name="github" translatable="false">GitHub</string>
 
-    <drawable name="ic_launcher">@drawable/ic_logo</drawable>
+    <drawable name="ic_launcher">@drawable/ic_weavemask_icon</drawable>
+    <drawable name="ic_launcher_round">@drawable/ic_weavemask_icon</drawable>
 
     <bool name="enable_fg_service">true</bool>
 

@@ -70,6 +70,7 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
+import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
@@ -342,7 +343,7 @@ fun SearchBar(
         leadingIcon = {
             Icon(
                 imageVector = MiuixIcons.Basic.Search,
-                contentDescription = "Search",
+                contentDescription = null,
                 modifier = Modifier
                     .size(44.dp)
                     .padding(start = 16.dp, end = 8.dp),
@@ -358,7 +359,7 @@ fun SearchBar(
                 Icon(
                     imageVector = MiuixIcons.Basic.SearchCleanup,
                     tint = colorScheme.onSurface,
-                    contentDescription = "Clean",
+                    contentDescription = stringResource(CoreR.string.clear_search_action),
                     modifier = Modifier
                         .size(44.dp)
                         .padding(start = 8.dp, end = 16.dp)
@@ -406,7 +407,7 @@ fun SearchBarFake(
         leadingIcon = {
             Icon(
                 imageVector = MiuixIcons.Basic.Search,
-                contentDescription = "Search",
+                contentDescription = null,
                 modifier = Modifier
                     .size(44.dp)
                     .padding(start = 16.dp, end = 8.dp),

@@ -91,10 +91,14 @@
     <!--SafetyNet-->
 
     <!-- MagiskHide -->
+    <string name="hide_system_app_action">隱藏系統應用程式</string>
     <string name="show_system_app">顯示系統應用程式</string>
     <string name="show_os_app">顯示作業系统</string>
     <string name="hide_filter_hint">過濾名稱</string>
     <string name="hide_search">搜尋</string>
+    <string name="search_apps_label">搜尋應用程式</string>
+    <string name="clear_search_action">清除搜尋</string>
+    <string name="more_options_description">更多選項</string>
 
     <!--Module -->
     <string name="no_info_provided">（未提供資訊）</string>
@@ -108,6 +112,10 @@
     <string name="module_state_restore">復原</string>
     <string name="module_action_install_external">從本機安裝</string>
     <string name="update_available">有可用的更新</string>
+    <string name="search_modules_label">搜尋模組</string>
+    <string name="module_sort_enabled_first_label">已啟用優先</string>
+    <string name="module_sort_update_first_label">可更新優先</string>
+    <string name="module_sort_executable_first_label">可執行優先</string>
     <string name="suspend_text_riru">此模組因 %1$s 已啟用而暫停運作</string>
     <string name="suspend_text_zygisk">此模組因 %1$s 未啟用而暫停運作</string>
     <string name="zygisk_module_unloaded">此模組因不相容 Zygisk 而未載入</string>

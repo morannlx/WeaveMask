@@ -36,6 +36,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.Collator
+import java.util.Locale
 import io.github.seyud.weave.ui.MainActivity
 import io.github.seyud.weave.core.R as CoreR
 import kotlinx.coroutines.delay
@@ -53,15 +54,20 @@ fun AppLanguageScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val localeList = remember {
-        LocaleSetting.available.let { available ->
-            available.names.indices.map { index ->
-                LanguageOption(index = index, name = available.names[index])
+    val systemDefaultLabel = context.getString(CoreR.string.system_default)
+    val tags = remember { LocaleSetting.available.tags.toList() }
+    val localeList = remember(tags, systemDefaultLabel) {
+        tags.mapIndexed { index, tag ->
+            val name = if (index == 0) {
+                systemDefaultLabel
+            } else {
+                val locale = Locale.forLanguageTag(tag)
+                locale.getDisplayName(locale)
             }
+            LanguageOption(index = index, name = name)
         }
     }
 
-    val tags = remember { LocaleSetting.available.tags }
     var selectedIndex by remember {
         mutableIntStateOf(tags.indexOf(Config.locale).takeIf { it >= 0 } ?: 0)
     }
@@ -70,10 +76,8 @@ fun AppLanguageScreen(
         if (LocaleSetting.useLocaleManager) 0L else 520L
     }
 
-    val currentSystemLanguageTag = remember {
-        LocaleSetting.instance.currentLocale.toLanguageTag()
-    }
-    val currentLocale = remember { LocaleSetting.instance.currentLocale }
+    val currentSystemLanguageTag = LocaleSetting.instance.currentLocale.toLanguageTag()
+    val currentLocale = LocaleSetting.instance.currentLocale
     val nameCollator = remember(currentLocale) { Collator.getInstance(currentLocale) }
 
     val suggestedIndexes = remember(localeList, tags, currentSystemLanguageTag) {

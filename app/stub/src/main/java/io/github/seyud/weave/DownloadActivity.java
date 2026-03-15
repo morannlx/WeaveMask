@@ -45,7 +45,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class DownloadActivity extends Activity {
 
-    private static final String APP_NAME = "Magisk";
+    private static final String APP_NAME = "WeaveMask";
     private static final ExecutorService DOWNLOAD_EXECUTOR = Executors.newCachedThreadPool();
 
     private Context themed;

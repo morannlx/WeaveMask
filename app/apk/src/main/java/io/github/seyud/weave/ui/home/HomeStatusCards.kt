@@ -119,7 +119,7 @@ internal fun MagiskCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = context.getString(CoreR.string.magisk),
+                        text = "WeaveMask",
                         style = MiuixTheme.textStyles.title3,
                         color = MiuixTheme.colorScheme.primary,
                         maxLines = 1,
@@ -327,7 +327,7 @@ internal fun ManagerCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = context.getString(CoreR.string.home_app_title),
+                    text = "APP",
                     style = MiuixTheme.textStyles.title3,
                     color = MiuixTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),

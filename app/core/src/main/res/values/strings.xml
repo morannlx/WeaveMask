@@ -93,10 +93,14 @@
     <string name="supp_group">Supplementary group: %s</string>
 
     <!--MagiskHide-->
+    <string name="hide_system_app_action">Hide system apps</string>
     <string name="show_system_app">Show system apps</string>
     <string name="show_os_app">Show OS apps</string>
     <string name="hide_filter_hint">Filter by name</string>
     <string name="hide_search">Search</string>
+    <string name="search_apps_label">Search apps</string>
+    <string name="clear_search_action">Clear search</string>
+    <string name="more_options_description">More options</string>
 
     <!--Module-->
     <string name="no_info_provided">(No info provided)</string>
@@ -114,6 +118,10 @@
     <string name="module_unavailable">Module %1$s is unavailable</string>
     <string name="module_action_install_external">Install from storage</string>
     <string name="update_available">Update available</string>
+    <string name="search_modules_label">Search modules</string>
+    <string name="module_sort_enabled_first_label">Enabled first</string>
+    <string name="module_sort_update_first_label">Updatable first</string>
+    <string name="module_sort_executable_first_label">Executable first</string>
     <string name="suspend_text_riru">Module suspended because %1$s is enabled</string>
     <string name="suspend_text_zygisk">Module suspended because %1$s isn\'t enabled</string>
     <string name="zygisk_module_unloaded">Zygisk module not loaded due to incompatibility</string>

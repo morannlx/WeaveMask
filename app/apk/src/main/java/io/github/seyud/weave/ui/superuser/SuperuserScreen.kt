@@ -38,6 +38,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
@@ -100,7 +101,10 @@ fun SuperuserScreen(
     val layoutDirection = LocalLayoutDirection.current
     val uiState by viewModel.uiState.collectAsState()
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
-    var searchStatus by remember { mutableStateOf(SearchStatus(label = "搜索应用")) }
+    val searchAppsLabel = stringResource(CoreR.string.search_apps_label)
+    var searchStatus by remember(searchAppsLabel) {
+        mutableStateOf(SearchStatus(label = searchAppsLabel))
+    }
     var expandedPolicyKeys by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val showTopPopup = remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
@@ -213,7 +217,11 @@ fun SuperuserScreen(
                             ) {
                                 ListPopupColumn {
                                     DropdownImpl(
-                                        text = if (uiState.showSystemApps) "隐藏系统应用" else "显示系统应用",
+                                        text = if (uiState.showSystemApps) {
+                                            stringResource(CoreR.string.hide_system_app_action)
+                                        } else {
+                                            stringResource(CoreR.string.show_system_app)
+                                        },
                                         isSelected = uiState.showSystemApps,
                                         optionSize = 1,
                                         onSelectedIndexChange = {
@@ -233,7 +241,7 @@ fun SuperuserScreen(
                             ) {
                                 Icon(
                                     imageVector = MiuixIcons.MoreCircle,
-                                    contentDescription = null
+                                    contentDescription = stringResource(CoreR.string.more_options_description)
                                 )
                             }
                         }
