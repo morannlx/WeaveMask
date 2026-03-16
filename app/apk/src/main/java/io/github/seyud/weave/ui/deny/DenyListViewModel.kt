@@ -2,7 +2,6 @@ package io.github.seyud.weave.ui.deny
 
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES
-import android.graphics.drawable.Drawable
 import androidx.compose.ui.state.ToggleableState
 import androidx.lifecycle.viewModelScope
 import com.topjohnwu.superuser.Shell
@@ -39,11 +38,9 @@ class DenyListViewModel : AsyncLoadViewModel() {
     private val _showOS = MutableStateFlow(false)
     private val _allApps = MutableStateFlow<List<DenyListAppInfo>>(emptyList())
     private val _denyList = MutableStateFlow<List<CmdlineListItem>>(emptyList())
-    private val _displayIcons = MutableStateFlow<Map<String, Drawable?>>(emptyMap())
     private val _processCache = MutableStateFlow<Map<String, List<ProcessInfo>>>(emptyMap())
     private val _loadingPackages = MutableStateFlow<Set<String>>(emptySet())
 
-    private val iconJobs = mutableMapOf<String, Job>()
     private val processJobs = mutableMapOf<String, Job>()
     private var delayedLoadingJob: Job? = null
 
@@ -80,7 +77,6 @@ class DenyListViewModel : AsyncLoadViewModel() {
 
     private data class CacheState(
         val denyList: List<CmdlineListItem>,
-        val icons: Map<String, Drawable?>,
         val processCache: Map<String, List<ProcessInfo>>,
         val loadingPackages: Set<String>,
     )
@@ -89,15 +85,13 @@ class DenyListViewModel : AsyncLoadViewModel() {
         FilterState(query = query, showSystem = showSystem, showOS = showOS)
     }
 
-    private val cacheState = combine(_denyList, _displayIcons, _processCache, _loadingPackages) {
+    private val cacheState = combine(_denyList, _processCache, _loadingPackages) {
             denyList,
-            icons,
             processCache,
             loadingPackages,
         ->
         CacheState(
             denyList = denyList,
-            icons = icons,
             processCache = processCache,
             loadingPackages = loadingPackages,
         )
@@ -117,7 +111,6 @@ class DenyListViewModel : AsyncLoadViewModel() {
             } else {
                 DenyListAppUiModel(
                     info = app,
-                    icon = caches.icons[app.packageName],
                     toggleState = toggleState,
                     processes = processes,
                     isLoadingProcesses = caches.loadingPackages.contains(app.packageName),
@@ -158,7 +151,6 @@ class DenyListViewModel : AsyncLoadViewModel() {
             _allApps.value = apps
             hasLoaded = true
             preloadSelectedProcesses(apps, denyList)
-            apps.take(24).forEach { loadDisplayIcon(it.packageName) }
         } finally {
             delayedLoadingJob?.cancel()
             delayedLoadingJob = null
@@ -182,22 +174,6 @@ class DenyListViewModel : AsyncLoadViewModel() {
             } finally {
                 _loadingPackages.update { it - packageName }
             }
-        }
-    }
-
-    fun loadDisplayIcon(packageName: String) {
-        if (_displayIcons.value.containsKey(packageName) || iconJobs[packageName]?.isActive == true) {
-            return
-        }
-        val appInfo = _allApps.value.firstOrNull { it.packageName == packageName } ?: return
-        _displayIcons.update { icons ->
-            if (icons.containsKey(packageName)) icons else icons + (packageName to null)
-        }
-        iconJobs[packageName] = viewModelScope.launch {
-            val icon = withContext(Dispatchers.IO) {
-                loadAppIcon(AppContext.packageManager, appInfo)
-            }
-            _displayIcons.update { it + (packageName to icon) }
         }
     }
 

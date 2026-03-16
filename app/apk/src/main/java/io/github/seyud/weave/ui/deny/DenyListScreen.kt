@@ -1,6 +1,8 @@
 package io.github.seyud.weave.ui.deny
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,15 +44,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.chrisbanes.haze.HazeState
@@ -59,6 +63,9 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import io.github.seyud.weave.ui.util.defaultHazeEffect
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
+import io.github.seyud.weave.utils.AppIconCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.DropdownImpl
@@ -261,9 +268,6 @@ fun DenyListScreen(
                                 key = { it.info.packageName },
                                 contentType = { "denylist_app" },
                             ) { item ->
-                                LaunchedEffect(item.info.packageName) {
-                                    viewModel.loadDisplayIcon(item.info.packageName)
-                                }
                                 DenyListItem(
                                     item = item,
                                     isExpanded = expandedItems.contains(item.info.packageName),
@@ -378,24 +382,40 @@ private fun DenyListItem(
     onToggleProcess: (ProcessInfo, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Entry animation: fade-in + slide-up effect (applied in draw phase via graphicsLayer)
+    val animationState = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        animationState.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 300)
+        )
+    }
+
     val currentContext = LocalContext.current
-    val packageManager = currentContext.packageManager
+    val density = LocalDensity.current
+    val iconSizePx = remember(density) { with(density) { 42.dp.roundToPx() } }
     val headerInteractionSource = remember { MutableInteractionSource() }
-    val fallbackIcon = remember(item.info.packageName, packageManager) {
-        runCatching { item.info.applicationInfo.loadIcon(packageManager) }
-            .getOrDefault(packageManager.defaultActivityIcon)
+
+    // Async icon loading - no fallback on main thread!
+    var iconBitmap by remember(item.info.packageName) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(item.info.packageName) {
+        launch(Dispatchers.IO) {
+            iconBitmap = AppIconCache.loadIconBitmap(currentContext, item.info.applicationInfo, iconSizePx)
+        }
     }
-    val iconDrawable = item.icon ?: fallbackIcon
-    val iconBitmap = remember(iconDrawable) {
-        iconDrawable.toBitmap().asImageBitmap()
-    }
+
     val cardAlpha = if (item.toggleState == ToggleableState.Off) 0.72f else 1f
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .alpha(cardAlpha),
+            .graphicsLayer {
+                // Apply transformations in the draw phase to avoid relayout
+                val progress = animationState.value
+                this.alpha = progress * cardAlpha
+                this.translationY = 50f * (1f - progress)
+            },
         cornerRadius = 18.dp,
     ) {
         Column(
@@ -422,11 +442,16 @@ private fun DenyListItem(
                         ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Image(
-                        bitmap = iconBitmap,
-                        contentDescription = null,
-                        modifier = Modifier.size(42.dp),
-                    )
+                    if (iconBitmap != null) {
+                        Image(
+                            bitmap = iconBitmap!!.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.size(42.dp),
+                        )
+                    } else {
+                        // Simple placeholder - no main thread loading!
+                        Box(modifier = Modifier.size(42.dp))
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
