@@ -50,6 +50,7 @@ import io.github.seyud.weave.ui.component.SearchBox
 import io.github.seyud.weave.ui.component.SearchPager
 import io.github.seyud.weave.ui.component.SearchStatus
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
+import io.github.seyud.weave.core.Info
 import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.ui.MainActivity
 import io.github.seyud.weave.core.download.DownloadEngine
@@ -586,7 +587,8 @@ private fun ModuleItem(
     val context = LocalContext.current
 
     // 当模块被移除、显示警告或待重启时，禁用开关
-    val isSwitchEnabled = !module.removed && !module.showNotice && !module.updated
+    // 但当Zygisk未启用时，允许切换Zygisk模块的启用/禁用状态
+    val isSwitchEnabled = !module.removed && !module.updated && (!module.showNotice || (!Info.isZygiskEnabled && module.isZygisk))
     val hasDescription = module.description.isNotEmpty()
     var expanded by rememberSaveable(module.id) { mutableStateOf(false) }
 
