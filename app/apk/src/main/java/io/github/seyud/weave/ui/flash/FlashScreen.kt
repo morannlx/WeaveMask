@@ -29,7 +29,7 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,7 +70,7 @@ fun FlashScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var state by remember { mutableStateOf(viewModel.state.value ?: FlashViewModel.State.FLASHING) }
-    val lines by viewModel.consoleLines.collectAsState()
+    val lines by viewModel.consoleLines.collectAsStateWithLifecycle()
     val isFlashing = state == FlashViewModel.State.FLASHING
 
     DisposableEffect(viewModel, lifecycleOwner) {

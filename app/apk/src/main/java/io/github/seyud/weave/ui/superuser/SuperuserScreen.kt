@@ -23,7 +23,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -106,7 +106,7 @@ fun SuperuserScreen(
 ) {
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
     val searchAppsLabel = stringResource(CoreR.string.search_apps_label)
     var searchStatus by remember(searchAppsLabel) {

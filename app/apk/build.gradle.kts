@@ -73,8 +73,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.7")
 
     // Navigation 3 + Miuix NavDisplay
-    implementation("androidx.navigation3:navigation3-runtime:1.1.0-alpha03")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-navigation3:2.10.0")
+    implementation(libs.navigation3.runtime)
+    implementation(libs.lifecycle.viewmodel.navigation3)
+    implementation(libs.navigationevent.compose)
     implementation(libs.miuix.navigation3.ui)
 
     // Miuix

@@ -5,8 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Box
@@ -16,8 +14,6 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.pager.HorizontalPager
@@ -29,9 +25,11 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import io.github.seyud.weave.ui.icon.SuperuserIcon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +46,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import io.github.seyud.weave.core.Info
@@ -59,6 +64,10 @@ import io.github.seyud.weave.core.utils.MediaStoreUtils
 import io.github.seyud.weave.dialog.LocalModuleInstallDialog
 import io.github.seyud.weave.ui.component.FloatingBottomBar
 import io.github.seyud.weave.ui.component.FloatingBottomBarItem
+import io.github.seyud.weave.ui.navigation3.LocalNavigator
+import io.github.seyud.weave.ui.navigation3.Navigator
+import io.github.seyud.weave.ui.navigation3.Route
+import io.github.seyud.weave.ui.navigation3.rememberNavigator
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
 import io.github.seyud.weave.ui.theme.LocalEnableFloatingBottomBar
 import io.github.seyud.weave.ui.theme.LocalEnableFloatingBottomBarBlur
@@ -66,12 +75,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
-import androidx.navigation.NavHostController
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
-import androidx.navigation.compose.rememberNavController
 import kotlin.math.abs
 import kotlin.math.PI
 import kotlin.math.cos
@@ -100,6 +103,7 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import io.github.seyud.weave.ui.util.defaultHazeEffect
+import io.github.seyud.weave.ui.util.rememberContentReady
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
@@ -110,55 +114,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.seyud.weave.ui.theme.WeaveMagiskTheme
 
 private val MainTabContentBottomSpacing = 12.dp
-
-/**
- * 主屏幕路由定义
- * 使用 sealed class 定义所有页面路由
- */
-sealed class Screen(val route: String) {
-    /** 主页（含 Tab 切换） */
-    object Main : Screen("main")
-    /** 主页 */
-    object Home : Screen("home")
-    /** 超级用户 */
-    object Superuser : Screen("superuser")
-    /** 模块 */
-    object Module : Screen("module")
-    /** 设置 */
-    object Settings : Screen("settings")
-    /** 日志 - 作为设置页的二级页面 */
-    object Log : Screen("log")
-    /** 应用语言 - 作为设置页的二级页面 */
-    object AppLanguage : Screen("app_language")
-    /** 安装 */
-    object Install : Screen("install")
-    /** 主题 */
-    object Theme : Screen("theme")
-    /** 刷写 */
-    object Flash : Screen("flash/{action}?uri={uri}") {
-        const val ACTION_ARG = "action"
-        const val URI_ARG = "uri"
-
-        fun createRoute(action: String, uri: Uri?): String {
-            val encodedAction = Uri.encode(action)
-            val encodedUri = uri?.toString()?.let(Uri::encode).orEmpty()
-            return "flash/$encodedAction?uri=$encodedUri"
-        }
-    }
-    /** 模块操作 */
-    object Action : Screen("action/{id}?name={name}") {
-        const val ID_ARG = "id"
-        const val NAME_ARG = "name"
-
-        fun createRoute(id: String, name: String): String {
-            val encodedId = Uri.encode(id)
-            val encodedName = Uri.encode(name)
-            return "action/$encodedId?name=$encodedName"
-        }
-    }
-    /** 拒绝列表 */
-    object Deny : Screen("deny")
-}
 
 /**
  * 底部导航目的地枚举
@@ -177,37 +132,25 @@ enum class BottomBarDestination(
 /**
  * Pager 状态管理，与 KernelSU 相同的即时选中 + 异步动画模式
  * 点击导航项时立即更新选中状态（图标高亮无延迟），Pager 动画异步滚动
- *
- * @param pagerState Compose HorizontalPager 状态
- * @param coroutineScope 用于启动动画协程
  */
 class MainPagerState(
     val pagerState: PagerState,
     private val coroutineScope: CoroutineScope
 ) {
-    /** 当前选中的页面索引，立即更新，供底部导航栏读取 */
     var selectedPage by mutableIntStateOf(pagerState.currentPage)
         private set
 
-    /** 是否正在执行导航动画（防止 syncPage 覆盖） */
     var isNavigating by mutableStateOf(false)
         private set
 
     private var navJob: Job? = null
 
-    /**
-     * 动画滚动到目标页面
-     * 立即更新 selectedPage，然后通过 animateScrollBy 异步执行滚动动画
-     */
     fun animateToPage(targetIndex: Int) {
         if (targetIndex == selectedPage) return
         navJob?.cancel()
-
-        // 立即更新选中态，底部栏图标即时响应
         selectedPage = targetIndex
         isNavigating = true
 
-        // 计算动画参数：页距越大动画越长
         val distance = abs(targetIndex - pagerState.currentPage).coerceAtLeast(2)
         val duration = 100 * distance + 100
 
@@ -226,7 +169,6 @@ class MainPagerState(
             } finally {
                 if (navJob == myJob) {
                     isNavigating = false
-                    // 容错：动画被中断时修正选中态
                     if (pagerState.currentPage != targetIndex) {
                         selectedPage = pagerState.currentPage
                     }
@@ -235,10 +177,6 @@ class MainPagerState(
         }
     }
 
-    /**
-     * 同步页面状态（用于手势滑动后更新选中态）
-     * 仅在非导航动画期间执行，避免覆盖正在进行的动画目标
-     */
     fun syncPage() {
         if (!isNavigating && selectedPage != pagerState.currentPage) {
             selectedPage = pagerState.currentPage
@@ -246,9 +184,6 @@ class MainPagerState(
     }
 }
 
-/**
- * 记忆并创建 MainPagerState
- */
 @Composable
 fun rememberMainPagerState(pagerState: PagerState): MainPagerState {
     val coroutineScope = rememberCoroutineScope()
@@ -259,7 +194,7 @@ fun rememberMainPagerState(pagerState: PagerState): MainPagerState {
 
 /**
  * 主屏幕 Composable 函数
- * 作为应用的主容器，包含 Tab 页面和二级页面导航
+ * 使用 Navigation3 NavDisplay 作为导航容器
  */
 @Composable
 fun MainScreen(
@@ -279,7 +214,7 @@ fun MainScreen(
     keyColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
-    val navController = rememberNavController()
+    val navigator = rememberNavigator(Route.Main)
     var rememberedMainTab by rememberSaveable {
         mutableIntStateOf(initialMainTab.coerceIn(0, 3))
     }
@@ -287,9 +222,7 @@ fun MainScreen(
     // 处理来自下载完成通知的 flash 导航请求
     LaunchedEffect(pendingFlashAction) {
         if (pendingFlashAction != null) {
-            navController.navigate(Screen.Flash.createRoute(pendingFlashAction, pendingFlashUri)) {
-                launchSingleTop = true
-            }
+            navigator.push(Route.Flash(pendingFlashAction, pendingFlashUri?.toString()))
         }
     }
 
@@ -324,7 +257,7 @@ fun MainScreen(
             },
             onConfirm = {
                 pendingExternalZip?.let { uri ->
-                    navController.navigate(Screen.Flash.createRoute(Const.Value.FLASH_ZIP, uri))
+                    navigator.push(Route.Flash(Const.Value.FLASH_ZIP, uri.toString()))
                 }
                 pendingExternalZip = null
                 onExternalZipHandled()
@@ -334,160 +267,85 @@ fun MainScreen(
     }
 
     WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Main.route,
-            modifier = modifier.fillMaxSize(),
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-            exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-            popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
+        CompositionLocalProvider(
+            LocalNavigator provides navigator,
         ) {
-            // 主页面：包含底部导航栏 + HorizontalPager 内容切换
-            composable(
-                Screen.Main.route,
-                enterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) {
-                MainTabScreen(
-                    navController = navController,
-                    homeViewModel = homeViewModel,
-                    moduleViewModel = moduleViewModel,
-                    superuserViewModel = superuserViewModel,
-                    settingsViewModel = settingsViewModel,
-                    logViewModel = logViewModel,
-                    initialMainTab = rememberedMainTab,
-                    onCurrentTabChanged = { rememberedMainTab = it }
-                )
-            }
+            Scaffold { _ ->
+                NavDisplay(
+                    backStack = navigator.backStack,
+                    entryDecorators = listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator()
+                    ),
+                    onBack = { navigator.pop() },
+                    modifier = modifier.fillMaxSize(),
+                    entryProvider = entryProvider {
+                        entry<Route.Main> {
+                            MainTabScreen(
+                                navigator = navigator,
+                                homeViewModel = homeViewModel,
+                                moduleViewModel = moduleViewModel,
+                                superuserViewModel = superuserViewModel,
+                                settingsViewModel = settingsViewModel,
+                                logViewModel = logViewModel,
+                                initialMainTab = rememberedMainTab,
+                                onCurrentTabChanged = { rememberedMainTab = it }
+                            )
+                        }
+                        entry<Route.Install> {
+                            InstallScreen(
+                                viewModel = installViewModel,
+                                onNavigateBack = { navigator.pop() },
+                                onNavigateToFlash = { action, uri ->
+                                    navigator.pop() // pop Install
+                                    navigator.push(Route.Flash(action, uri?.toString()))
+                                }
+                            )
+                        }
+                        entry<Route.Flash> { key ->
+                            val uriArg = key.uriString
+                                ?.takeIf { it.isNotEmpty() }
+                                ?.let(Uri::parse)
 
-            // 二级页面：全屏覆盖，无底部导航栏
-            composable(
-                Screen.Install.route,
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) {
-                InstallScreen(
-                    viewModel = installViewModel,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToFlash = { action, uri ->
-                        navController.navigate(Screen.Flash.createRoute(action, uri)) {
-                            popUpTo(Screen.Install.route) {
-                                inclusive = true
+                            DisposableEffect(key.action) {
+                                onDispose {
+                                    if (key.action == Const.Value.FLASH_ZIP) {
+                                        moduleViewModel.refresh()
+                                    }
+                                }
                             }
+
+                            FlashScreen(
+                                viewModel = flashViewModel,
+                                action = key.action,
+                                additionalData = uriArg,
+                                onNavigateBack = { navigator.pop() }
+                            )
+                        }
+                        entry<Route.Log> {
+                            LogScreen(
+                                viewModel = logViewModel,
+                                onNavigateBack = { navigator.pop() }
+                            )
+                        }
+                        entry<Route.AppLanguage> {
+                            AppLanguageScreen(
+                                onNavigateBack = { navigator.pop() }
+                            )
+                        }
+                        entry<Route.Deny> {
+                            DenyListScreen(
+                                onNavigateBack = { navigator.pop() }
+                            )
+                        }
+                        entry<Route.Action> { key ->
+                            ActionScreen(
+                                moduleId = key.moduleId,
+                                moduleName = key.moduleName,
+                                onNavigateBack = { navigator.pop() }
+                            )
                         }
                     }
-                )
-            }
-
-            composable(
-                route = Screen.Flash.route,
-                arguments = listOf(
-                    navArgument(Screen.Flash.ACTION_ARG) { type = NavType.StringType },
-                    navArgument(Screen.Flash.URI_ARG) {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = ""
-                    }
-                ),
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) { backStackEntry ->
-                val action = backStackEntry.arguments
-                    ?.getString(Screen.Flash.ACTION_ARG)
-                    ?.let(Uri::decode)
-                    ?: Const.Value.FLASH_MAGISK
-                val uriArg = backStackEntry.arguments
-                    ?.getString(Screen.Flash.URI_ARG)
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.let(Uri::decode)
-                    ?.let(Uri::parse)
-
-                // 使用 DisposableEffect 监听页面离开，处理侧滑返回的情况
-                DisposableEffect(action) {
-                    onDispose {
-                        // 如果从模块安装页面离开，刷新模块列表
-                        if (action == Const.Value.FLASH_ZIP) {
-                            moduleViewModel.refresh()
-                        }
-                    }
-                }
-
-                FlashScreen(
-                    viewModel = flashViewModel,
-                    action = action,
-                    additionalData = uriArg,
-                    onNavigateBack = {
-                        // 点击返回按钮时也会触发 DisposableEffect 的 onDispose
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable(
-                Screen.Log.route,
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) {
-                LogScreen(
-                    viewModel = logViewModel,
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                Screen.AppLanguage.route,
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) {
-                AppLanguageScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                Screen.Deny.route,
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) {
-                DenyListScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                route = Screen.Action.route,
-                arguments = listOf(
-                    navArgument(Screen.Action.ID_ARG) { type = NavType.StringType },
-                    navArgument(Screen.Action.NAME_ARG) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    }
-                ),
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = navTween()) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = navTween()) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = navTween()) }
-            ) { backStackEntry ->
-                val id = backStackEntry.arguments?.getString(Screen.Action.ID_ARG) ?: ""
-                val name = backStackEntry.arguments?.getString(Screen.Action.NAME_ARG) ?: ""
-
-                ActionScreen(
-                    moduleId = id,
-                    moduleName = name,
-                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }
@@ -496,13 +354,12 @@ fun MainScreen(
 
 /**
  * 主 Tab 页面
- * 使用 HorizontalPager 实现 Tab 切换，所有页面预渲染 (beyondViewportPageCount=3)
- * 点击底部导航栏时图标立即高亮（selectedPage 即时更新），Pager 异步滑动动画
- * Tab 切换时底部导航栏保持不动，仅内容区域水平滑动
+ * 使用 HorizontalPager 实现 Tab 切换，动态 beyondViewportPageCount
+ * 导航转场动画完成后才预渲染其他页面（rememberContentReady）
  */
 @Composable
 private fun MainTabScreen(
-    navController: NavHostController,
+    navigator: Navigator,
     homeViewModel: HomeViewModel,
     moduleViewModel: ModuleViewModel,
     superuserViewModel: SuperuserViewModel,
@@ -511,7 +368,7 @@ private fun MainTabScreen(
     initialMainTab: Int,
     onCurrentTabChanged: (Int) -> Unit,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val enableBlur = LocalEnableBlur.current
     val enableFloatingBottomBar = LocalEnableFloatingBottomBar.current
     val enableFloatingBottomBarBlur = LocalEnableFloatingBottomBarBlur.current
@@ -537,9 +394,22 @@ private fun MainTabScreen(
         pageCount = { 4 }
     )
     val mainPagerState = rememberMainPagerState(pagerState)
-    BackHandler(enabled = mainPagerState.selectedPage != 0) {
-        mainPagerState.animateToPage(0)
+
+    // Navigation3 back handler
+    val isPagerBackHandlerEnabled by remember {
+        derivedStateOf {
+            navigator.current() is Route.Main && navigator.backStackSize() == 1 && mainPagerState.selectedPage != 0
+        }
     }
+
+    val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = navEventState,
+        isBackEnabled = isPagerBackHandlerEnabled,
+        onBackCompleted = {
+            mainPagerState.animateToPage(0)
+        }
+    )
 
     // 手势滑动 Pager 后同步选中态到底部栏
     LaunchedEffect(mainPagerState.pagerState.currentPage) {
@@ -550,6 +420,9 @@ private fun MainTabScreen(
     val destinations = BottomBarDestination.entries
     val isSuperuserEnabled = Info.showSuperUser
     val isModuleEnabled = Info.env.isActive && LocalModule.loaded()
+
+    // 使用 rememberContentReady 延迟加载 Pager 内容
+    val contentReady = rememberContentReady()
 
     Scaffold(
         bottomBar = {
@@ -645,8 +518,8 @@ private fun MainTabScreen(
 
         HorizontalPager(
             state = pagerState,
-            beyondViewportPageCount = 3, // 预渲染所有 4 页，切换零延迟
-            userScrollEnabled = true, // 支持手势滑动与底部导航栏切换
+            beyondViewportPageCount = if (contentReady) 3 else 0,
+            userScrollEnabled = true,
             modifier = Modifier
                 .fillMaxSize()
                 .then(if (enableBlur) Modifier.hazeSource(state = hazeState) else Modifier)
@@ -656,33 +529,30 @@ private fun MainTabScreen(
                     else Modifier
                 )
         ) { page ->
+            val isCurrentPage = page == mainPagerState.pagerState.currentPage
             when (page) {
-                0 -> HomeScreen(
+                0 -> if (isCurrentPage || contentReady) HomeScreen(
                     viewModel = homeViewModel,
                     contentBottomPadding = contentBottomPadding,
                     onNavigateToInstall = {
-                        navController.navigate(Screen.Install.route)
+                        navigator.push(Route.Install)
                     },
                     onNavigateToUninstall = {
-                        navController.navigate(
-                            Screen.Flash.createRoute(Const.Value.UNINSTALL, null)
-                        )
+                        navigator.push(Route.Flash(Const.Value.UNINSTALL, null))
                     }
                 )
-                1 -> SuperuserScreen(
+                1 -> if (isCurrentPage || contentReady) SuperuserScreen(
                     viewModel = superuserViewModel,
                     contentBottomPadding = contentBottomPadding
                 )
-                2 -> ModuleScreen(
+                2 -> if (isCurrentPage || contentReady) ModuleScreen(
                     viewModel = moduleViewModel,
                     contentBottomPadding = contentBottomPadding,
                     onInstallModuleFromLocal = { uri ->
-                        navController.navigate(
-                            Screen.Flash.createRoute(Const.Value.FLASH_ZIP, uri)
-                        )
+                        navigator.push(Route.Flash(Const.Value.FLASH_ZIP, uri.toString()))
                     },
                     onRunAction = { id, name ->
-                        navController.navigate(Screen.Action.createRoute(id, name))
+                        navigator.push(Route.Action(id, name))
                     },
                     onOpenWebUi = { id, name ->
                         context.startActivity(
@@ -692,18 +562,18 @@ private fun MainTabScreen(
                         )
                     }
                 )
-                3 -> SettingsScreen(
+                3 -> if (isCurrentPage || contentReady) SettingsScreen(
                     viewModel = settingsViewModel,
                     contentBottomPadding = contentBottomPadding,
                     onNavigateToLog = {
-                        navController.navigate(Screen.Log.route)
+                        navigator.push(Route.Log)
                     },
                     onNavigateToAppLanguage = {
                         onCurrentTabChanged(3)
-                        navController.navigate(Screen.AppLanguage.route)
+                        navigator.push(Route.AppLanguage)
                     },
                     onNavigateToDenyListConfig = {
-                        navController.navigate(Screen.Deny.route)
+                        navigator.push(Route.Deny)
                     }
                 )
             }
@@ -714,9 +584,6 @@ private fun MainTabScreen(
 /**
  * Miuix 风格导航过渡缓动函数
  * 基于阻尼弹簧物理模型，与 Miuix NavDisplay 使用相同参数
- *
- * @param response 弹簧响应时间
- * @param damping 阻尼系数
  */
 @Immutable
 private class NavTransitionEasing(
@@ -744,7 +611,7 @@ private class NavTransitionEasing(
     }
 }
 
-/** Miuix 风格导航动画缓动实例，与 Miuix NavDisplay 参数一致 (response=0.8, damping=0.95) */
+/** Miuix 风格导航动画缓动实例 */
 private val NavAnimationEasing = NavTransitionEasing(0.8f, 0.95f)
 
 /** 导航过渡动画 tween 规格，500ms + Miuix 弹簧缓动 */

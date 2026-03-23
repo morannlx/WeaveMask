@@ -10,7 +10,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.Lifecycle
@@ -88,7 +88,7 @@ class SuRequestActivity : ComponentActivity(), UntrackedActivity, IActivityExten
             val keyColor = if (keyColorInt == 0) null else Color(keyColorInt)
 
             WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {
-                val dialogState by viewModel.dialogState.collectAsState()
+                val dialogState by viewModel.dialogState.collectAsStateWithLifecycle()
 
                 SuRequestDialog(
                     state = dialogState,

@@ -28,10 +28,13 @@ import kotlinx.parcelize.Parcelize
 import timber.log.Timber
 import io.github.seyud.weave.core.R as CoreR
 
+import androidx.compose.runtime.Immutable
+
 /**
  * 模块页 UI 状态
  * 使用 data class 符合 Compose 单向数据流原则
  */
+@Immutable
 data class ModuleUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,

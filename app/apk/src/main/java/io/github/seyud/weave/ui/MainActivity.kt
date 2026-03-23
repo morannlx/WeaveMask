@@ -24,7 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -599,7 +599,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
         onZipReceived: (Uri) -> Unit
     ) {
         val activity = this
-        val intentStateValue by intentState.collectAsState()
+        val intentStateValue by intentState.collectAsStateWithLifecycle()
 
         LaunchedEffect(intentStateValue) {
             val currentIntent = activity.intent

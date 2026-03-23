@@ -37,6 +37,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+
+@Stable
 data class SuperuserUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -49,6 +53,7 @@ data class SuperuserUiState(
     val revokeDialogState: io.github.seyud.weave.dialog.SuperuserRevokeDialog.DialogState = io.github.seyud.weave.dialog.SuperuserRevokeDialog.DialogState()
 )
 
+@Immutable
 data class PolicyCardUiState(
     val key: String,
     val uid: Int,
