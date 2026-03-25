@@ -5,23 +5,17 @@ import android.Manifest.permission.REQUEST_INSTALL_PACKAGES
 import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
 import android.annotation.SuppressLint
 import android.os.Bundle
-import androidx.databinding.PropertyChangeRegistry
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.navigation.NavDirections
 import io.github.seyud.weave.core.R
-import io.github.seyud.weave.databinding.ObservableHost
 import io.github.seyud.weave.events.BackPressEvent
 import io.github.seyud.weave.events.DialogBuilder
 import io.github.seyud.weave.events.DialogEvent
-import io.github.seyud.weave.events.NavigationEvent
 import io.github.seyud.weave.events.PermissionEvent
 import io.github.seyud.weave.events.SnackbarEvent
 
-abstract class BaseViewModel : ViewModel(), ObservableHost {
-
-    override var callbacks: PropertyChangeRegistry? = null
+abstract class BaseViewModel : ViewModel() {
 
     private val _viewEvents = MutableLiveData<ViewEvent>()
     val viewEvents: LiveData<ViewEvent> get() = _viewEvents
@@ -75,9 +69,4 @@ abstract class BaseViewModel : ViewModel(), ObservableHost {
     fun DialogBuilder.show() {
         DialogEvent(this).publish()
     }
-
-    fun NavDirections.navigate(pop: Boolean = false) {
-        _viewEvents.postValue(NavigationEvent(this, pop))
-    }
-
 }

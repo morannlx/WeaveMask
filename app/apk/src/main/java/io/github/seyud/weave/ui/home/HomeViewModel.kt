@@ -6,12 +6,10 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
-import androidx.databinding.Bindable
-import io.github.seyud.weave.BR
-import io.github.seyud.weave.R
 import io.github.seyud.weave.arch.ActivityExecutor
 import io.github.seyud.weave.arch.AsyncLoadViewModel
 import io.github.seyud.weave.arch.ContextExecutor
@@ -25,8 +23,6 @@ import io.github.seyud.weave.core.download.Subject.App
 import io.github.seyud.weave.core.model.UpdateInfo
 import io.github.seyud.weave.core.ktx.toast
 import io.github.seyud.weave.core.repository.NetworkService
-import io.github.seyud.weave.databinding.bindExtra
-import io.github.seyud.weave.databinding.set
 import io.github.seyud.weave.dialog.EnvFixDialog
 import io.github.seyud.weave.dialog.UninstallDialog
 import io.github.seyud.weave.events.SnackbarEvent
@@ -50,13 +46,6 @@ class HomeViewModel(
         val releaseNotes: String = "",
         val installEnabled: Boolean = false,
     )
-
-
-
-    val magiskTitleBarrierIds =
-        intArrayOf(R.id.home_magisk_icon, R.id.home_magisk_title, R.id.home_magisk_button)
-    val appTitleBarrierIds =
-        intArrayOf(R.id.home_manager_icon, R.id.home_manager_title, R.id.home_manager_button)
 
     /**
      * 通知卡片是否可见
@@ -129,13 +118,8 @@ class HomeViewModel(
     val managerPackageName
         get() = AppContext.packageName
 
-    @get:Bindable
-    var stateManagerProgress = 0
-        set(value) = set(value, field, { field = it }, BR.stateManagerProgress)
-
-    val extraBindings = bindExtra {
-        it.put(BR.viewModel, this)
-    }
+    var stateManagerProgress by mutableIntStateOf(0)
+        private set
 
     companion object {
         private var checkedEnv = false

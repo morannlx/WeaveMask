@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -78,6 +79,8 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.seyud.weave.ui.theme.WeaveMagiskTheme
 import io.github.seyud.weave.view.MagiskDialog
+import io.github.seyud.weave.view.MagiskDialogHost
+import io.github.seyud.weave.view.MagiskDialogHostContent
 import io.github.seyud.weave.view.Shortcuts
 import kotlinx.coroutines.launch
 import java.io.File
@@ -95,7 +98,8 @@ class MainViewModel : BaseViewModel()
  * 实现 SplashScreenHost 接口以支持启动画面控制
  * 实现 IActivityExtension 接口以支持权限请求等功能
  */
-class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, ViewModelHolder {
+class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, ViewModelHolder,
+    MagiskDialogHost {
 
     companion object {
         const val EXTRA_START_MAIN_TAB = "start_main_tab"
@@ -134,6 +138,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     private val settingsViewModel: SettingsViewModel by viewModels { VMFactory }
 
     private var showAddShortcutDialog by mutableStateOf(false)
+    private val magiskDialogs = mutableStateListOf<MagiskDialog>()
 
     /** Intent 状态流，用于触发 LaunchedEffect 重新执行 */
     private val intentState = MutableStateFlow(0)
@@ -293,6 +298,12 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                         },
                     )
                 }
+
+                WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {
+                    MagiskDialogHostContent(
+                        dialog = magiskDialogs.firstOrNull()
+                    )
+                }
             }
         }
         installSplashUiReadyObserver()
@@ -437,6 +448,20 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
             is ContextExecutor -> event(this)
             is ActivityExecutor -> event(this)
             else -> Unit
+        }
+    }
+
+    override fun showMagiskDialog(dialog: MagiskDialog) {
+        runOnUiThread {
+            if (!magiskDialogs.contains(dialog)) {
+                magiskDialogs.add(dialog)
+            }
+        }
+    }
+
+    override fun dismissMagiskDialog(dialog: MagiskDialog) {
+        runOnUiThread {
+            magiskDialogs.remove(dialog)
         }
     }
 

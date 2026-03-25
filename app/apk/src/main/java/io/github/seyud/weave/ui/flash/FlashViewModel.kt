@@ -1,16 +1,13 @@
 package io.github.seyud.weave.ui.flash
 
 import android.content.Context
-import android.view.MenuItem
 import android.widget.Toast
-import androidx.databinding.Bindable
-import androidx.databinding.ObservableArrayList
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.map
 import androidx.lifecycle.viewModelScope
-import io.github.seyud.weave.BR
-import io.github.seyud.weave.R
 import io.github.seyud.weave.arch.BaseViewModel
 import io.github.seyud.weave.core.Const
 import io.github.seyud.weave.core.Info
@@ -23,7 +20,6 @@ import io.github.seyud.weave.core.tasks.FlashZip
 import io.github.seyud.weave.core.tasks.MagiskInstaller
 import io.github.seyud.weave.core.utils.MediaStoreUtils
 import io.github.seyud.weave.core.utils.MediaStoreUtils.outputStream
-import io.github.seyud.weave.databinding.set
 import io.github.seyud.weave.events.SnackbarEvent
 import com.topjohnwu.superuser.CallbackList
 import kotlinx.coroutines.Dispatchers
@@ -53,16 +49,13 @@ class FlashViewModel : BaseViewModel() {
 
     private val _state = MutableLiveData(State.FLASHING)
     val state: LiveData<State> get() = _state
-    val flashing = state.map { it == State.FLASHING }
     private var isInitialized = false
     private var isFlashingStarted = false
 
-    @get:Bindable
-    var showReboot = Info.isRooted
-        set(value) = set(value, field, { field = it }, BR.showReboot)
+    var showReboot by mutableStateOf(Info.isRooted)
+        private set
 
-    val items = ObservableArrayList<ConsoleItem>()
-    lateinit var args: FlashFragmentArgs
+    private lateinit var request: FlashRequest
     private val _consoleLines = MutableStateFlow<List<String>>(emptyList())
     val consoleLines: StateFlow<List<String>> = _consoleLines.asStateFlow()
 
@@ -73,7 +66,6 @@ class FlashViewModel : BaseViewModel() {
     private val outItems = object : CallbackList<String>() {
         override fun onAddElement(e: String?) {
             e ?: return
-            items.add(ConsoleItem(e))
             logItems.add(e)
             viewModelScope.launch {
                 _consoleLines.value = _consoleLines.value + e
@@ -94,10 +86,9 @@ class FlashViewModel : BaseViewModel() {
         isFlashingStarted = false
 
         // 重新初始化参数和状态
-        args = FlashFragmentArgs(action = action, additionalData = uri)
+        request = FlashRequest(action = action, dataUri = uri)
         _state.value = State.FLASHING
         showReboot = Info.isRooted
-        items.clear()
         synchronized(logItems) {
             logItems.clear()
         }
@@ -105,7 +96,6 @@ class FlashViewModel : BaseViewModel() {
     }
 
     private fun appendVisibleConsoleLine(line: String) {
-        items.add(ConsoleItem(line))
         logItems.add(line)
         _consoleLines.value = _consoleLines.value + line
     }
@@ -118,7 +108,7 @@ class FlashViewModel : BaseViewModel() {
     fun startFlashing() {
         if (isFlashingStarted) return
         isFlashingStarted = true
-        val (action, uri) = args
+        val (action, uri) = request
 
         viewModelScope.launch {
             try {
@@ -171,13 +161,6 @@ class FlashViewModel : BaseViewModel() {
 
     private fun onResult(success: Boolean) {
         _state.value = if (success) State.SUCCESS else State.FAILED
-    }
-
-    fun onMenuItemClicked(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.action_save -> savePressed()
-        }
-        return true
     }
 
     private fun savePressed() = withExternalRW {

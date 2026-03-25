@@ -16,7 +16,3 @@ interface ContextExecutor {
 interface ActivityExecutor {
     operator fun invoke(activity: AppCompatActivity)
 }
-
-interface FragmentExecutor {
-    operator fun invoke(fragment: BaseFragment<*>)
-}

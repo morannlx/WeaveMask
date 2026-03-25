@@ -6,22 +6,21 @@ import android.os.Parcelable
 import android.text.Spanned
 import androidx.core.os.BundleCompat
 import android.text.SpannedString
-import androidx.databinding.Bindable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import io.github.seyud.weave.BR
-import io.github.seyud.weave.R
 import io.github.seyud.weave.arch.BaseViewModel
 import io.github.seyud.weave.core.AppContext
 import io.github.seyud.weave.core.BuildConfig.APP_VERSION_CODE
-import io.github.seyud.weave.core.Const
 import io.github.seyud.weave.core.Config
 import io.github.seyud.weave.core.Info
 import io.github.seyud.weave.core.repository.NetworkService
-import io.github.seyud.weave.databinding.set
 import io.github.seyud.weave.dialog.SecondSlotWarningDialog
-import io.github.seyud.weave.ui.flash.FlashFragment
+import io.github.seyud.weave.ui.flash.FlashRequest
 import io.noties.markwon.Markwon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,22 +47,28 @@ class InstallViewModel(svc: NetworkService, markwon: Markwon) : BaseViewModel() 
     val skipOptions = Info.isEmulator || (Info.isSAR && !Info.isFDE && Info.ramdisk)
     val noSecondSlot = !isRooted || !Info.isAB || Info.isEmulator
 
-    @get:Bindable
-    var step = if (skipOptions) 1 else 0
-        set(value) = set(value, field, { field = it }, BR.step)
+    private var stepState by mutableIntStateOf(if (skipOptions) 1 else 0)
+    var step: Int
+        get() = stepState
+        set(value) {
+            stepState = value
+        }
 
-    private var methodId = -1
+    private var methodId by mutableIntStateOf(-1)
 
-    @get:Bindable
     var method
         get() = methodId
-        set(value) = set(value, methodId, { methodId = it }, BR.method) {
-            when (it) {
-                METHOD_INACTIVE_SLOT -> {
-                    SecondSlotWarningDialog().show()
-                }
-            }
+        set(value) {
+            setMethod(value, showWarning = true)
         }
+
+    private fun setMethod(value: Int, showWarning: Boolean) {
+        if (methodId == value) return
+        methodId = value
+        if (showWarning && value == METHOD_INACTIVE_SLOT) {
+            SecondSlotWarningDialog().show()
+        }
+    }
 
     val data: LiveData<Uri?> get() = uri
 
@@ -71,9 +76,8 @@ class InstallViewModel(svc: NetworkService, markwon: Markwon) : BaseViewModel() 
         uri.value = localUri
     }
 
-    @get:Bindable
-    var notes: Spanned = SpannedString("")
-        set(value) = set(value, field, { field = it }, BR.notes)
+    var notes by mutableStateOf<Spanned>(SpannedString(""))
+        private set
 
     var notesText: String = ""
         private set
@@ -102,32 +106,20 @@ class InstallViewModel(svc: NetworkService, markwon: Markwon) : BaseViewModel() 
         }
     }
 
-    fun install() {
-        when (method) {
-            METHOD_PATCH -> FlashFragment.patch(data.value!!).navigate(true)
-            METHOD_DIRECT -> FlashFragment.flash(false).navigate(true)
-            METHOD_INACTIVE_SLOT -> FlashFragment.flash(true).navigate(true)
-            else -> error("Unknown value")
-        }
-    }
-
     fun composeFlashRequest(): ComposeFlashRequest? {
         return when (method) {
             METHOD_PATCH -> data.value?.let {
                 ComposeFlashRequest(
-                    action = Const.Value.PATCH_FILE,
-                    dataUri = it
+                    request = FlashRequest.patch(it),
                 )
             }
 
             METHOD_DIRECT -> ComposeFlashRequest(
-                action = Const.Value.FLASH_MAGISK,
-                dataUri = null
+                request = FlashRequest.flash(isSecondSlot = false),
             )
 
             METHOD_INACTIVE_SLOT -> ComposeFlashRequest(
-                action = Const.Value.FLASH_INACTIVE_SLOT,
-                dataUri = null
+                request = FlashRequest.flash(isSecondSlot = true),
             )
 
             else -> null
@@ -148,7 +140,7 @@ class InstallViewModel(svc: NetworkService, markwon: Markwon) : BaseViewModel() 
 
     override fun onRestoreState(state: Bundle) {
         BundleCompat.getParcelable(state, INSTALL_STATE_KEY, InstallState::class.java)?.let {
-            methodId = it.method
+            setMethod(it.method, showWarning = false)
             step = it.step
             Config.keepVerity = it.keepVerity
             Config.keepEnc = it.keepEnc
@@ -166,8 +158,7 @@ class InstallViewModel(svc: NetworkService, markwon: Markwon) : BaseViewModel() 
     ) : Parcelable
 
     data class ComposeFlashRequest(
-        val action: String,
-        val dataUri: Uri?
+        val request: FlashRequest,
     )
 
 }

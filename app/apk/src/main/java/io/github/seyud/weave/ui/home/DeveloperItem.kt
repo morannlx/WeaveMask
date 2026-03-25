@@ -1,8 +1,6 @@
 package io.github.seyud.weave.ui.home
 
-import io.github.seyud.weave.R
 import io.github.seyud.weave.core.Const
-import io.github.seyud.weave.databinding.RvItem
 import io.github.seyud.weave.core.R as CoreR
 
 interface Dev {
@@ -87,13 +85,11 @@ sealed class DeveloperItem : Dev {
     }
 }
 
-sealed class IconLink : RvItem() {
+sealed class IconLink {
 
     abstract val icon: Int
     abstract val title: Int
     abstract val link: String
-
-    override val layoutRes get() = R.layout.item_icon_link
 
     abstract class PayPal : IconLink(), Dev {
         override val icon get() = CoreR.drawable.ic_paypal

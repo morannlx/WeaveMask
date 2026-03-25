@@ -2,25 +2,13 @@ plugins {
     id("com.android.application")
     kotlin("plugin.parcelize")
     kotlin("plugin.serialization") version "2.3.20"
-    id("com.android.legacy-kapt")
-    id("androidx.navigation.safeargs.kotlin")
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.20"
 }
 
 setupMainApk()
 
-kapt {
-    correctErrorTypes = true
-    useBuildCache = true
-    mapDiagnosticLocations = true
-    javacOptions {
-        option("-Xmaxerrs", "1000")
-    }
-}
-
 android {
     buildFeatures {
-        dataBinding = true
         compose = true
     }
 
@@ -44,18 +32,6 @@ dependencies {
     implementation(project(":core"))
     coreLibraryDesugaring(libs.jdk.libs)
 
-    implementation(libs.rikka.layoutinflater)
-    implementation(libs.rikka.insets)
-    implementation(libs.rikka.recyclerview)
-
-    implementation(libs.navigation.fragment.ktx)
-    implementation(libs.navigation.ui.ktx)
-
-    implementation(libs.constraintlayout)
-    implementation(libs.swiperefreshlayout)
-    implementation(libs.recyclerview)
-    implementation(libs.transition)
-    implementation(libs.fragment.ktx)
     implementation(libs.appcompat)
     implementation(libs.material)
 
@@ -89,24 +65,6 @@ dependencies {
     implementation(libs.backdrop)
     implementation(libs.capsule)
 
-    // Room
-    kapt(libs.room.compiler)
-    implementation(libs.room.ktx)
-    implementation(libs.room.runtime)
-    implementation(libs.miuix)
-    implementation(libs.miuix.icons)
-
     // WebKit (WebViewAssetLoader)
     implementation("androidx.webkit:webkit:1.13.0")
-
-    // Haze (Gaussian blur)
-    implementation(libs.haze)
-
-    // Backdrop (Liquid Glass)
-    implementation(libs.backdrop)
-    implementation(libs.capsule)
-
-    // Make sure kapt runs with a proper kotlin-stdlib
-    kapt(kotlin("stdlib"))
 }
-

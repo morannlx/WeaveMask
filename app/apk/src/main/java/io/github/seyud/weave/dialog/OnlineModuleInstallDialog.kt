@@ -25,7 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.seyud.weave.core.download.Subject
 import io.github.seyud.weave.core.model.module.OnlineModule
 import io.github.seyud.weave.ui.component.MarkdownText
-import io.github.seyud.weave.ui.flash.FlashFragment
+import io.github.seyud.weave.ui.flash.FlashRequest
 import io.github.seyud.weave.view.Notifications
 import kotlinx.parcelize.Parcelize
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -67,7 +67,7 @@ object OnlineModuleInstallDialog {
         override val autoLaunch: Boolean,
         override val notifyId: Int = Notifications.nextId()
     ) : Subject.Module() {
-        override fun pendingIntent(context: Context) = FlashFragment.installIntent(context, file)
+        override fun pendingIntent(context: Context) = FlashRequest.install(file).toPendingIntent(context)
     }
 }
 

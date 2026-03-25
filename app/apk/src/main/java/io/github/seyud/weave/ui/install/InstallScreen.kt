@@ -243,7 +243,7 @@ fun InstallScreen(
                     },
                     onInstallClick = {
                         viewModel.composeFlashRequest()?.let {
-                            onNavigateToFlash(it.action, it.dataUri)
+                            onNavigateToFlash(it.request.action, it.request.dataUri)
                         }
                     }
                 )

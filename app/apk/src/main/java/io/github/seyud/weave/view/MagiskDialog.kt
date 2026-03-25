@@ -2,91 +2,65 @@ package io.github.seyud.weave.view
 
 import android.app.Activity
 import android.content.DialogInterface
-import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.InsetDrawable
-import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.appcompat.app.AppCompatDialog
-import androidx.appcompat.content.res.AppCompatResources
-import androidx.databinding.Bindable
-import androidx.databinding.PropertyChangeRegistry
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.color.MaterialColors
-import com.google.android.material.shape.MaterialShapeDrawable
-import io.github.seyud.weave.BR
-import io.github.seyud.weave.R
-import io.github.seyud.weave.arch.UIActivity
-import io.github.seyud.weave.databinding.DialogMagiskBaseBinding
-import io.github.seyud.weave.databinding.DiffItem
-import io.github.seyud.weave.databinding.ItemWrapper
-import io.github.seyud.weave.databinding.ObservableHost
-import io.github.seyud.weave.databinding.RvItem
-import io.github.seyud.weave.databinding.bindExtra
-import io.github.seyud.weave.databinding.set
-import io.github.seyud.weave.databinding.setAdapter
-import io.github.seyud.weave.view.MagiskDialog.DialogClickListener
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.drawable.toBitmap
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.extra.WindowDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 typealias DialogButtonClickListener = (DialogInterface) -> Unit
 
+interface MagiskDialogHost {
+    fun showMagiskDialog(dialog: MagiskDialog)
+    fun dismissMagiskDialog(dialog: MagiskDialog)
+}
+
 class MagiskDialog(
-    context: Activity, theme: Int = 0
-) : AppCompatDialog(context, theme) {
+    private val activity: Activity,
+    @Suppress("UNUSED_PARAMETER") theme: Int = 0,
+) : DialogInterface {
 
-    private val binding: DialogMagiskBaseBinding =
-        DialogMagiskBaseBinding.inflate(LayoutInflater.from(context))
-    private val data = Data()
+    private val host = activity as? MagiskDialogHost
 
-    val activity: UIActivity<*> get() = ownerActivity as UIActivity<*>
+    private var iconDrawable: Drawable? = null
+    private var title: CharSequence = ""
+    private var message: CharSequence = ""
+    private var contentView: View? = null
+    private var cancelable: Boolean = true
 
-    /**
-     * 对话框的协程作用域，用于在对话框中执行异步操作
-     * 该作用域会在对话框 dismiss 时自动取消，避免内存泄漏和空指针异常
-     */
-    val dialogScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    init {
-        binding.setVariable(BR.data, data)
-        setCancelable(true)
-        setOwnerActivity(context)
-    }
-
-    override fun dismiss() {
-        dialogScope.cancel()
-        super.dismiss()
-    }
-
-    inner class Data : ObservableHost {
-        override var callbacks: PropertyChangeRegistry? = null
-
-        @get:Bindable
-        var icon: Drawable? = null
-            set(value) = set(value, field, { field = it }, BR.icon)
-
-        @get:Bindable
-        var title: CharSequence = ""
-            set(value) = set(value, field, { field = it }, BR.title)
-
-        @get:Bindable
-        var message: CharSequence = ""
-            set(value) = set(value, field, { field = it }, BR.message)
-
-        val buttonPositive = ButtonViewModel()
-        val buttonNeutral = ButtonViewModel()
-        val buttonNegative = ButtonViewModel()
-    }
+    private val positiveButton = ButtonViewModel()
+    private val neutralButton = ButtonViewModel()
+    private val negativeButton = ButtonViewModel()
 
     enum class ButtonType {
-        POSITIVE, NEUTRAL, NEGATIVE
+        POSITIVE,
+        NEUTRAL,
+        NEGATIVE,
     }
 
     interface Button {
@@ -98,150 +72,216 @@ class MagiskDialog(
         fun onClick(listener: DialogButtonClickListener)
     }
 
-    inner class ButtonViewModel : Button, ObservableHost {
-        override var callbacks: PropertyChangeRegistry? = null
+    inner class ButtonViewModel : Button {
+        override var icon: Int = 0
+        override var text: Any = ""
+        override var isEnabled: Boolean = true
+        override var doNotDismiss: Boolean = false
 
-        @get:Bindable
-        override var icon = 0
-            set(value) = set(value, field, { field = it }, BR.icon, BR.gone)
+        private var listener: DialogButtonClickListener = {}
 
-        @get:Bindable
-        var message: String = ""
-            set(value) = set(value, field, { field = it }, BR.message, BR.gone)
+        val visible: Boolean
+            get() = icon != 0 || resolvedText.isNotEmpty()
 
-        override var text: Any
-            get() = message
-            set(value) {
-                message = when (value) {
-                    is Int -> context.getText(value)
-                    else -> value
-                }.toString()
+        val resolvedText: CharSequence
+            get() = when (val value = text) {
+                is Int -> activity.getText(value)
+                is CharSequence -> value
+                else -> value.toString()
             }
 
-        @get:Bindable
-        val gone get() = icon == 0 && message.isEmpty()
-
-        @get:Bindable
-        override var isEnabled = true
-            set(value) = set(value, field, { field = it }, BR.enabled)
-
-        override var doNotDismiss = false
-
-        private var onClickAction: DialogButtonClickListener = {}
-
         override fun onClick(listener: DialogButtonClickListener) {
-            onClickAction = listener
+            this.listener = listener
         }
 
-        fun clicked() {
-            onClickAction(this@MagiskDialog)
+        fun invoke() {
+            listener(this@MagiskDialog)
             if (!doNotDismiss) {
                 dismiss()
             }
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        super.setContentView(binding.root)
+    @Immutable
+    private data class ButtonRenderState(
+        val iconRes: Int,
+        val text: CharSequence,
+        val isEnabled: Boolean,
+        val isPrimary: Boolean,
+        val onClick: () -> Unit,
+    )
 
-        val default = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurface, javaClass.canonicalName)
-        val surfaceColor = MaterialColors.getColor(context, R.attr.colorSurfaceSurfaceVariant, default)
-        val materialShapeDrawable = MaterialShapeDrawable(context, null, androidx.appcompat.R.attr.alertDialogStyle, com.google.android.material.R.style.MaterialAlertDialog_MaterialComponents)
-        materialShapeDrawable.initializeElevationOverlay(context)
-        materialShapeDrawable.fillColor = ColorStateList.valueOf(surfaceColor)
-        materialShapeDrawable.elevation = context.resources.getDimension(R.dimen.margin_generic)
-        materialShapeDrawable.setCornerSize(context.resources.getDimension(R.dimen.l_50))
-
-        val inset = context.resources.getDimensionPixelSize(com.google.android.material.R.dimen.appcompat_dialog_background_inset)
-        window?.apply {
-            setBackgroundDrawable(InsetDrawable(materialShapeDrawable, inset, inset, inset, inset))
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
+    @StringRes
+    fun setTitle(titleId: Int) {
+        title = activity.getString(titleId)
     }
 
-    override fun setTitle(@StringRes titleId: Int) { data.title = context.getString(titleId) }
-
-    override fun setTitle(title: CharSequence?) { data.title = title ?: "" }
+    fun setTitle(title: CharSequence?) {
+        this.title = title ?: ""
+    }
 
     fun setMessage(@StringRes msgId: Int, vararg args: Any) {
-        data.message = context.getString(msgId, *args)
+        message = activity.getString(msgId, *args)
     }
 
-    fun setMessage(message: CharSequence) { data.message = message }
+    fun setMessage(message: CharSequence) {
+        this.message = message
+    }
 
     fun setIcon(@DrawableRes drawableRes: Int) {
-        data.icon = AppCompatResources.getDrawable(context, drawableRes)
+        iconDrawable = androidx.appcompat.content.res.AppCompatResources.getDrawable(activity, drawableRes)
     }
 
-    fun setIcon(drawable: Drawable) { data.icon = drawable }
+    fun setIcon(drawable: Drawable) {
+        iconDrawable = drawable
+    }
 
     fun setButton(buttonType: ButtonType, builder: Button.() -> Unit) {
         val button = when (buttonType) {
-            ButtonType.POSITIVE -> data.buttonPositive
-            ButtonType.NEUTRAL -> data.buttonNeutral
-            ButtonType.NEGATIVE -> data.buttonNegative
+            ButtonType.POSITIVE -> positiveButton
+            ButtonType.NEUTRAL -> neutralButton
+            ButtonType.NEGATIVE -> negativeButton
         }
         button.apply(builder)
     }
 
-    class DialogItem(
-        override val item: CharSequence,
-        val position: Int
-    ) : RvItem(), DiffItem<DialogItem>, ItemWrapper<CharSequence> {
-        override val layoutRes = R.layout.item_list_single_line
-    }
-
-    fun interface DialogClickListener {
-        fun onClick(position: Int)
-    }
-
-    fun setListItems(
-        list: Array<out CharSequence>,
-        listener: DialogClickListener
-    ) = setView(
-        RecyclerView(context).also {
-            it.isNestedScrollingEnabled = false
-            it.layoutManager = LinearLayoutManager(context)
-
-            val items = list.mapIndexed { i, cs -> DialogItem(cs, i) }
-            val extraBindings = bindExtra { sa ->
-                sa.put(BR.listener, DialogClickListener { pos ->
-                    listener.onClick(pos)
-                    dismiss()
-                })
-            }
-            it.setAdapter(items, extraBindings)
-        }
-    )
-
     fun setView(view: View) {
-        binding.dialogBaseContainer.removeAllViews()
-        binding.dialogBaseContainer.addView(
-            view,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+        contentView = view
+    }
+
+    fun setCancelable(flag: Boolean) {
+        cancelable = flag
+    }
+
+    fun show() {
+        checkNotNull(host) { "MagiskDialog host is only available in activities implementing MagiskDialogHost" }
+        host.showMagiskDialog(this)
+    }
+
+    override fun cancel() {
+        dismiss()
+    }
+
+    override fun dismiss() {
+        host?.dismissMagiskDialog(this)
+    }
+
+    @Composable
+    internal fun Render() {
+        val dismissRequest = if (cancelable) {
+            { dismiss() }
+        } else {
+            {}
+        }
+        val buttons = remember(this) {
+            listOf(
+                neutralButton.toRenderState(isPrimary = false),
+                negativeButton.toRenderState(isPrimary = false),
+                positiveButton.toRenderState(isPrimary = true),
+            ).filterNotNull()
+        }
+
+        WindowDialog(
+            show = true,
+            title = title.takeIf { it.isNotEmpty() }?.toString(),
+            summary = message.takeIf { it.isNotEmpty() }?.toString(),
+            onDismissRequest = dismissRequest,
+        ) {
+            Column {
+                iconDrawable?.let { drawable ->
+                    val bitmap = remember(drawable) {
+                        runCatching { drawable.toBitmap() }.getOrNull()
+                    }
+                    if (bitmap != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                if (message.isEmpty()) {
+                    contentView?.let { view ->
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth(),
+                            factory = { context ->
+                                (view.parent as? ViewGroup)?.removeView(view)
+                                view
+                            },
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                if (buttons.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        buttons.forEachIndexed { index, button ->
+                            Button(
+                                onClick = button.onClick,
+                                modifier = Modifier.weight(1f),
+                                enabled = button.isEnabled,
+                                colors = if (button.isPrimary) {
+                                    ButtonDefaults.buttonColorsPrimary()
+                                } else {
+                                    ButtonDefaults.buttonColors(
+                                        color = MiuixTheme.colorScheme.secondaryVariant,
+                                        disabledColor = MiuixTheme.colorScheme.disabledSecondaryVariant,
+                                        contentColor = MiuixTheme.colorScheme.onSecondaryVariant,
+                                        disabledContentColor = MiuixTheme.colorScheme.disabledOnSecondaryVariant,
+                                    )
+                                },
+                            ) {
+                                if (button.iconRes != 0) {
+                                    Icon(
+                                        painter = painterResource(button.iconRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (button.isPrimary) {
+                                            MiuixTheme.colorScheme.primary
+                                        } else {
+                                            MiuixTheme.colorScheme.onBackground
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(text = button.text.toString())
+                            }
+                            if (index != buttons.lastIndex) {
+                                Spacer(modifier = Modifier.width(20.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun ButtonViewModel.toRenderState(isPrimary: Boolean): ButtonRenderState? {
+        if (!visible) return null
+        return ButtonRenderState(
+            iconRes = icon,
+            text = resolvedText,
+            isEnabled = isEnabled,
+            isPrimary = isPrimary,
+            onClick = { invoke() },
         )
     }
+}
 
-    fun resetButtons() {
-        ButtonType.values().forEach {
-            setButton(it) {
-                text = ""
-                icon = 0
-                isEnabled = true
-                doNotDismiss = false
-                onClick {}
-            }
-        }
-    }
-
-    // Prevent calling setContentView
-
-    @Deprecated("Please use setView(view)", level = DeprecationLevel.ERROR)
-    override fun setContentView(layoutResID: Int) {}
-    @Deprecated("Please use setView(view)", level = DeprecationLevel.ERROR)
-    override fun setContentView(view: View) {}
-    @Deprecated("Please use setView(view)", level = DeprecationLevel.ERROR)
-    override fun setContentView(view: View, params: ViewGroup.LayoutParams?) {}
+@Composable
+fun MagiskDialogHostContent(
+    dialog: MagiskDialog?,
+) {
+    dialog?.Render()
 }

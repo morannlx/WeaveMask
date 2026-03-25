@@ -5,10 +5,9 @@ import android.content.pm.PackageManager
 import android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES
 import android.graphics.drawable.Drawable
 import android.os.Process
-import androidx.databinding.Bindable
-import androidx.databinding.ObservableArrayList
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.viewModelScope
-import io.github.seyud.weave.BR
 import io.github.seyud.weave.arch.AsyncLoadViewModel
 import io.github.seyud.weave.core.AppContext
 import io.github.seyud.weave.core.Config
@@ -17,16 +16,10 @@ import io.github.seyud.weave.core.R
 import io.github.seyud.weave.core.data.magiskdb.PolicyDao
 import io.github.seyud.weave.core.ktx.getLabel
 import io.github.seyud.weave.core.model.su.SuPolicy
-import io.github.seyud.weave.databinding.MergeObservableList
-import io.github.seyud.weave.databinding.RvItem
-import io.github.seyud.weave.databinding.bindExtra
-import io.github.seyud.weave.databinding.diffList
-import io.github.seyud.weave.databinding.set
 import io.github.seyud.weave.dialog.SuperuserRevokeDialog
 import io.github.seyud.weave.events.AuthEvent
 import io.github.seyud.weave.events.SnackbarEvent
 import io.github.seyud.weave.utils.asText
-import io.github.seyud.weave.view.TextItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,9 +30,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.Stable
-
 @Stable
 data class SuperuserUiState(
     val isLoading: Boolean = true,
@@ -49,8 +39,7 @@ data class SuperuserUiState(
     val policies: List<PolicyCardUiState> = emptyList(),
     val errorMessage: String? = null,
     val revision: Long = 0L,
-    // 撤销权限对话框状态
-    val revokeDialogState: io.github.seyud.weave.dialog.SuperuserRevokeDialog.DialogState = io.github.seyud.weave.dialog.SuperuserRevokeDialog.DialogState()
+    val revokeDialogState: SuperuserRevokeDialog.DialogState = SuperuserRevokeDialog.DialogState(),
 )
 
 @Immutable
@@ -64,47 +53,39 @@ data class PolicyCardUiState(
     val shouldNotify: Boolean,
     val shouldLog: Boolean,
     val showSlider: Boolean,
-    val isEnabled: Boolean
+    val isEnabled: Boolean,
+)
+
+private data class PolicyEntry(
+    val item: SuPolicy,
+    val packageName: String,
+    val isSharedUid: Boolean,
+    val icon: Drawable,
+    val appName: String,
 )
 
 class SuperuserViewModel(
-    private val db: PolicyDao
+    private val db: PolicyDao,
 ) : AsyncLoadViewModel() {
-
-    private val itemNoData = TextItem(R.string.superuser_policy_none)
-
-    private val itemsHelpers = ObservableArrayList<TextItem>()
-    val itemsPolicies = diffList<PolicyRvItem>()
-
-    val items = MergeObservableList<RvItem>()
-        .insertList(itemsHelpers)
-        .insertList(itemsPolicies)
-    val extraBindings = bindExtra {
-        it.put(BR.listener, this)
-    }
-
-    @get:Bindable
-    var loading = true
-        private set(value) = set(value, field, { field = it }, BR.loading)
 
     private val _uiState = MutableStateFlow(SuperuserUiState())
     val uiState: StateFlow<SuperuserUiState> = _uiState.asStateFlow()
 
-    private var allPolicies: List<PolicyRvItem> = emptyList()
+    private var allPolicies: List<PolicyEntry> = emptyList()
 
     internal fun policyKey(uid: Int, packageName: String) = "$uid:$packageName"
 
-    private fun PolicyRvItem.toCardUiState() = PolicyCardUiState(
+    private fun PolicyEntry.toCardUiState() = PolicyCardUiState(
         key = policyKey(item.uid, packageName),
         uid = item.uid,
         packageName = packageName,
-        appName = appName,
+        appName = if (isSharedUid) "[SharedUID] $appName" else appName,
         icon = icon,
         policy = item.policy,
         shouldNotify = item.notification,
         shouldLog = item.logging,
         showSlider = Config.suRestrict || item.policy == SuPolicy.RESTRICT,
-        isEnabled = item.policy >= SuPolicy.ALLOW
+        isEnabled = item.policy >= SuPolicy.ALLOW,
     )
 
     private fun findPolicyByKey(key: String) =
@@ -134,12 +115,6 @@ class SuperuserViewModel(
     @SuppressLint("InlinedApi")
     private suspend fun loadPolicies(isInitialLoad: Boolean) {
         if (!Info.showSuperUser) {
-            loading = false
-            itemsPolicies.update(emptyList())
-            itemsHelpers.clear()
-            if (itemsHelpers.isEmpty()) {
-                itemsHelpers.add(itemNoData)
-            }
             allPolicies = emptyList()
             _uiState.update {
                 it.copy(
@@ -147,14 +122,13 @@ class SuperuserViewModel(
                     isRefreshing = false,
                     policies = emptyList(),
                     errorMessage = null,
-                    revision = it.revision + 1
+                    revision = it.revision + 1,
                 )
             }
             return
         }
 
         if (isInitialLoad) {
-            loading = true
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         } else {
             _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
@@ -164,7 +138,7 @@ class SuperuserViewModel(
             val policies = withContext(Dispatchers.IO) {
                 db.deleteOutdated()
                 db.delete(AppContext.applicationInfo.uid)
-                val newPolicies = ArrayList<PolicyRvItem>()
+                val newPolicies = ArrayList<PolicyEntry>()
                 val pm = AppContext.packageManager
                 for (policy in db.fetchAll()) {
                     val pkgs =
@@ -177,15 +151,14 @@ class SuperuserViewModel(
                     val map = pkgs.mapNotNull { pkg ->
                         try {
                             val info = pm.getPackageInfo(pkg, MATCH_UNINSTALLED_PACKAGES)
-                            PolicyRvItem(
-                                this@SuperuserViewModel,
-                                policy,
-                                info.packageName,
-                                info.sharedUserId != null,
-                                info.applicationInfo?.loadIcon(pm) ?: pm.defaultActivityIcon,
-                                info.applicationInfo?.getLabel(pm) ?: info.packageName
+                            PolicyEntry(
+                                item = policy,
+                                packageName = info.packageName,
+                                isSharedUid = info.sharedUserId != null,
+                                icon = info.applicationInfo?.loadIcon(pm) ?: pm.defaultActivityIcon,
+                                appName = info.applicationInfo?.getLabel(pm) ?: info.packageName,
                             )
-                        } catch (e: PackageManager.NameNotFoundException) {
+                        } catch (_: PackageManager.NameNotFoundException) {
                             null
                         }
                     }
@@ -198,37 +171,25 @@ class SuperuserViewModel(
                 newPolicies.sortedWith(
                     compareBy(
                         { it.appName.lowercase(Locale.ROOT) },
-                        { it.packageName }
-                    )
+                        { it.packageName },
+                    ),
                 )
             }
 
             allPolicies = policies
-            itemsPolicies.update(policies)
-            if (policies.isNotEmpty()) {
-                itemsHelpers.clear()
-            } else if (itemsHelpers.isEmpty()) {
-                itemsHelpers.add(itemNoData)
-            }
             publishFilteredPolicies(errorMessage = null)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            itemsPolicies.update(emptyList())
-            itemsHelpers.clear()
-            if (itemsHelpers.isEmpty()) {
-                itemsHelpers.add(itemNoData)
-            }
             allPolicies = emptyList()
             _uiState.update {
                 it.copy(
                     policies = emptyList(),
                     errorMessage = e.message,
-                    revision = it.revision + 1
+                    revision = it.revision + 1,
                 )
             }
         } finally {
-            loading = false
             _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
         }
     }
@@ -254,107 +215,73 @@ class SuperuserViewModel(
             it.copy(
                 policies = mapped,
                 errorMessage = errorMessage,
-                revision = it.revision + 1
+                revision = it.revision + 1,
             )
         }
     }
-
-    // ---
 
     fun deleteByKey(key: String) {
         findPolicyByKey(key)?.let { onRevokePressed(key) }
     }
 
     fun toggleNotifyByKey(key: String) {
-        findPolicyByKey(key)?.let {
-            it.item.notification = !it.item.notification
-            updateNotify(it)
+        findPolicyByKey(key)?.let { entry ->
+            entry.item.notification = !entry.item.notification
+            updateNotify(entry)
         }
     }
 
     fun toggleLogByKey(key: String) {
-        findPolicyByKey(key)?.let {
-            it.item.logging = !it.item.logging
-            updateLogging(it)
+        findPolicyByKey(key)?.let { entry ->
+            entry.item.logging = !entry.item.logging
+            updateLogging(entry)
         }
     }
 
     fun updatePolicyByKey(key: String, policy: Int) {
-        findPolicyByKey(key)?.let {
-            updatePolicy(it, policy)
+        findPolicyByKey(key)?.let { entry ->
+            updatePolicy(entry, policy)
         }
     }
 
-    // ---
-
-    /**
-     * 显示撤销权限确认对话框
-     *
-     * @param key 策略唯一标识
-     */
     fun showRevokeDialog(key: String) {
         val item = findPolicyByKey(key) ?: return
         _uiState.update {
             it.copy(
-                revokeDialogState = io.github.seyud.weave.dialog.SuperuserRevokeDialog.DialogState(
+                revokeDialogState = SuperuserRevokeDialog.DialogState(
                     visible = true,
-                    appName = item.appName
-                )
+                    appName = item.appName,
+                ),
             )
         }
     }
 
-    /**
-     * 关闭撤销权限确认对话框
-     */
     fun dismissRevokeDialog() {
         _uiState.update {
             it.copy(
-                revokeDialogState = it.revokeDialogState.copy(visible = false)
+                revokeDialogState = it.revokeDialogState.copy(visible = false),
             )
         }
     }
 
-    /**
-     * 确认撤销权限
-     *
-     * @param key 策略唯一标识
-     */
     fun confirmRevoke(key: String) {
         dismissRevokeDialog()
-        findPolicyByKey(key)?.let { item ->
+        findPolicyByKey(key)?.let { entry ->
             viewModelScope.launch {
-                db.delete(item.item.uid)
-                allPolicies = allPolicies.filterNot { it.item.uid == item.item.uid }
-                itemsPolicies.update(allPolicies)
-                if (allPolicies.isEmpty() && itemsHelpers.isEmpty()) {
-                    itemsHelpers.add(itemNoData)
-                } else if (allPolicies.isNotEmpty()) {
-                    itemsHelpers.clear()
-                }
+                db.delete(entry.item.uid)
+                allPolicies = allPolicies.filterNot { it.item.uid == entry.item.uid }
                 publishFilteredPolicies()
             }
         }
     }
 
-    /**
-     * 处理撤销按钮点击（带认证检查）
-     *
-     * @param key 策略唯一标识
-     */
     fun onRevokePressed(key: String) {
-        val item = findPolicyByKey(key) ?: return
+        val entry = findPolicyByKey(key) ?: return
 
         fun doRevoke() {
             viewModelScope.launch {
-                db.delete(item.item.uid)
-                allPolicies = allPolicies.filterNot { it.item.uid == item.item.uid }
-                itemsPolicies.update(allPolicies)
-                if (allPolicies.isEmpty() && itemsHelpers.isEmpty()) {
-                    itemsHelpers.add(itemNoData)
-                } else if (allPolicies.isNotEmpty()) {
-                    itemsHelpers.clear()
-                }
+                db.delete(entry.item.uid)
+                allPolicies = allPolicies.filterNot { it.item.uid == entry.item.uid }
                 publishFilteredPolicies()
             }
         }
@@ -366,63 +293,49 @@ class SuperuserViewModel(
         }
     }
 
-    @Deprecated("使用 onRevokePressed 替代", ReplaceWith("onRevokePressed"))
-    fun deletePressed(item: PolicyRvItem) {
-        val key = policyKey(item.item.uid, item.packageName)
-        onRevokePressed(key)
-    }
-
-    fun updateNotify(item: PolicyRvItem) {
+    private fun updateNotify(entry: PolicyEntry) {
         publishFilteredPolicies()
         viewModelScope.launch {
-            db.update(item.item)
-            val res = when {
-                item.item.notification -> R.string.su_snack_notif_on
-                else -> R.string.su_snack_notif_off
-            }
-            itemsPolicies.forEach {
-                if (it.item.uid == item.item.uid) {
-                    it.notifyPropertyChanged(BR.shouldNotify)
-                }
+            db.update(entry.item)
+            val res = if (entry.item.notification) {
+                R.string.su_snack_notif_on
+            } else {
+                R.string.su_snack_notif_off
             }
             publishFilteredPolicies()
-            SnackbarEvent(res.asText(item.appName)).publish()
+            SnackbarEvent(res.asText(entry.appName)).publish()
         }
     }
 
-    fun updateLogging(item: PolicyRvItem) {
+    private fun updateLogging(entry: PolicyEntry) {
         publishFilteredPolicies()
         viewModelScope.launch {
-            db.update(item.item)
-            val res = when {
-                item.item.logging -> R.string.su_snack_log_on
-                else -> R.string.su_snack_log_off
-            }
-            itemsPolicies.forEach {
-                if (it.item.uid == item.item.uid) {
-                    it.notifyPropertyChanged(BR.shouldLog)
-                }
+            db.update(entry.item)
+            val res = if (entry.item.logging) {
+                R.string.su_snack_log_on
+            } else {
+                R.string.su_snack_log_off
             }
             publishFilteredPolicies()
-            SnackbarEvent(res.asText(item.appName)).publish()
+            SnackbarEvent(res.asText(entry.appName)).publish()
         }
     }
 
-    fun updatePolicy(item: PolicyRvItem, policy: Int) {
-        if (item.item.policy == policy) return
-        val items = itemsPolicies.filter { it.item.uid == item.item.uid }
+    private fun updatePolicy(entry: PolicyEntry, policy: Int) {
+        if (entry.item.policy == policy) return
+
         fun updateState() {
-            item.item.policy = policy
+            entry.item.policy = policy
             publishFilteredPolicies()
             viewModelScope.launch {
-                val res = if (policy >= SuPolicy.ALLOW) R.string.su_snack_grant else R.string.su_snack_deny
-                db.update(item.item)
-                items.forEach {
-                    it.notifyPropertyChanged(BR.enabled)
-                    it.notifyPropertyChanged(BR.sliderValue)
+                val res = if (policy >= SuPolicy.ALLOW) {
+                    R.string.su_snack_grant
+                } else {
+                    R.string.su_snack_deny
                 }
+                db.update(entry.item)
                 publishFilteredPolicies()
-                SnackbarEvent(res.asText(item.appName)).publish()
+                SnackbarEvent(res.asText(entry.appName)).publish()
             }
         }
 
