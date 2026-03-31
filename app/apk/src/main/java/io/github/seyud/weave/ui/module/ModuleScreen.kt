@@ -1,208 +1,73 @@
 package io.github.seyud.weave.ui.module
 
-import android.content.Context
 import android.net.Uri
-import android.provider.OpenableColumns
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.net.toUri
-import androidx.core.content.edit
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Text
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.layout.Box
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeSource
-import io.github.seyud.weave.ui.component.SearchBox
-import io.github.seyud.weave.ui.component.SearchPager
-import io.github.seyud.weave.ui.component.SearchStatus
-import io.github.seyud.weave.ui.theme.LocalEnableBlur
-import io.github.seyud.weave.core.Info
-import io.github.seyud.weave.core.ktx.getBitmap
 import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.ui.MainActivity
-import io.github.seyud.weave.core.download.DownloadEngine
-import io.github.seyud.weave.dialog.LocalModuleInstallDialog
-import io.github.seyud.weave.dialog.OnlineModuleInstallDialog
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownImpl
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.ListPopupColumn
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
-import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Switch
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.basic.VerticalScrollBar
+import io.github.seyud.weave.ui.component.SearchStatus
+import io.github.seyud.weave.ui.module.components.ModuleScreenContent
+import io.github.seyud.weave.ui.module.components.ModuleScreenTopBar
+import io.github.seyud.weave.ui.module.components.ModuleSearchResultsHost
+import io.github.seyud.weave.ui.module.dialogs.ModuleScreenDialogs
+import io.github.seyud.weave.ui.module.state.rememberLocalModulePicker
+import io.github.seyud.weave.ui.module.state.rememberModuleScreenLocalState
+import io.github.seyud.weave.ui.module.state.rememberModuleSortPreferences
+import io.github.seyud.weave.ui.module.state.rememberShortcutIconPicker
+import io.github.seyud.weave.ui.theme.LocalEnableBlur
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
-import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
-import top.yukonga.miuix.kmp.extra.SuperDialog
-import top.yukonga.miuix.kmp.extra.SuperListPopup
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Download
-import top.yukonga.miuix.kmp.icon.extended.MoreCircle
-import top.yukonga.miuix.kmp.icon.extended.UploadCloud
-import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Undo
-import top.yukonga.miuix.kmp.icon.extended.Play
-import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Code
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.IOException
 
-/**
- * 模块列表页面
- * 使用纯 Compose 实现，遵循 Miuix 设计哲学
- *
- * @param viewModel 模块 ViewModel
- * @param contentBottomPadding 主页面内容底部留白
- * @param onInstallModuleFromLocal 本地安装模块回调
- * @param onRunAction 运行模块操作回调
- * @param modifier Modifier
- */
 @Composable
 fun ModuleScreen(
     viewModel: ModuleViewModel,
-     contentBottomPadding: Dp,
+    contentBottomPadding: Dp,
     onInstallModuleFromLocal: (Uri) -> Unit,
     onRunAction: (String, String) -> Unit,
     onOpenWebUi: (String, String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val uiActivity = context as? MainActivity
-    val prefs = remember(context) { context.getSharedPreferences("settings", Context.MODE_PRIVATE) }
-    val layoutDirection = LocalLayoutDirection.current
-    val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
-    var hasStartedLoading by rememberSaveable { mutableStateOf(false) }
     val searchModulesLabel = stringResource(CoreR.string.search_modules_label)
-    var searchStatus by remember(searchModulesLabel) {
-        mutableStateOf(SearchStatus(label = searchModulesLabel))
-    }
-    val showTopPopup = remember { mutableStateOf(false) }
+    val localState = rememberModuleScreenLocalState(searchModulesLabel)
+    val sortPreferences = rememberModuleSortPreferences(context)
     val shortcutState = rememberModuleShortcutState(context)
-    var showShortcutDialog by rememberSaveable { mutableStateOf(false) }
-    var showShortcutTypeDialog by rememberSaveable { mutableStateOf(false) }
-    val pullToRefreshState = rememberPullToRefreshState()
-    val localModulePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let {
-            scope.launch {
-                val result = runCatching {
-                    withContext(Dispatchers.IO) {
-                        val originalName = context.contentResolver.query(
-                            it, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
-                        )?.use { cursor ->
-                            if (cursor.moveToFirst()) {
-                                cursor.getString(
-                                    cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
-                                )
-                            } else null
-                        } ?: "install.zip"
-                        val cacheDir = File(context.cacheDir, "module_install").apply {
-                            deleteRecursively()
-                            mkdirs()
-                        }
-                        val target = File(cacheDir, originalName)
-                        val input = context.contentResolver.openInputStream(it)
-                            ?: throw IOException("Cannot read selected file")
-                        input.use { source ->
-                            target.outputStream().use { sink ->
-                                source.copyTo(sink)
-                            }
-                        }
-                        Pair(target.toUri(), originalName)
-                    }
-                }
-                result
-                    .onSuccess { (localUri, displayName) ->
-                        viewModel.requestInstallLocalModule(localUri, displayName)
-                    }
-                    .onFailure { error ->
-                        Toast.makeText(
-                            context,
-                            error.message ?: context.getString(CoreR.string.failure),
-                            Toast.LENGTH_LONG
-                        ).show()
-                }
-            }
-        }
-    }
-    val shortcutIconPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        shortcutState.updateIconUri(uri?.toString())
-    }
+    val launchLocalModulePicker = rememberLocalModulePicker(
+        onModulePicked = viewModel::requestInstallLocalModule,
+    )
+    val launchShortcutIconPicker = rememberShortcutIconPicker(
+        onIconPicked = shortcutState::updateIconUri,
+    )
     val enableBlur = LocalEnableBlur.current
     val hazeState = remember { HazeState() }
     val hazeStyle = if (enableBlur) {
         HazeStyle(
             backgroundColor = MiuixTheme.colorScheme.surface,
-            tint = HazeTint(MiuixTheme.colorScheme.surface.copy(0.8f))
+            tint = HazeTint(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f)),
         )
     } else {
         HazeStyle.Unspecified
     }
     val scrollBehavior = MiuixScrollBehavior()
-    val uiSearchStatus = searchStatus.copy(
+    val uiSearchStatus = localState.searchStatus.copy(
         resultStatus = when {
             uiState.isLoading -> SearchStatus.ResultStatus.LOAD
             uiState.modules.isEmpty() -> SearchStatus.ResultStatus.EMPTY
@@ -216,15 +81,15 @@ fun ModuleScreen(
             0 -> Unit
             1 -> {
                 shortcutState.selectType(shortcutState.availableTypes.first())
-                showShortcutDialog = true
+                localState.showShortcutDialog = true
             }
+
             else -> {
-                showShortcutTypeDialog = true
+                localState.showShortcutTypeDialog = true
             }
         }
     }
 
-    // 设置运行模块操作的回调
     DisposableEffect(onRunAction) {
         viewModel.onRunAction = onRunAction
         onDispose {
@@ -232,21 +97,17 @@ fun ModuleScreen(
         }
     }
 
-    LaunchedEffect(hasStartedLoading) {
-        if (!hasStartedLoading) {
-            hasStartedLoading = true
-            viewModel.restoreSortOptions(
-                sortEnabledFirst = prefs.getBoolean(MODULE_SORT_ENABLED_FIRST_KEY, false),
-                sortUpdateFirst = prefs.getBoolean(MODULE_SORT_UPDATE_FIRST_KEY, false),
-                sortExecutableFirst = prefs.getBoolean(MODULE_SORT_EXECUTABLE_FIRST_KEY, false),
-            )
+    LaunchedEffect(localState.hasStartedLoading) {
+        if (!localState.hasStartedLoading) {
+            localState.hasStartedLoading = true
+            sortPreferences.restore(viewModel)
             viewModel.startLoading()
         }
     }
 
-    LaunchedEffect(searchStatus.searchText) {
-        if (uiState.query != searchStatus.searchText) {
-            viewModel.setQuery(searchStatus.searchText)
+    LaunchedEffect(localState.searchStatus.searchText) {
+        if (uiState.query != localState.searchStatus.searchText) {
+            viewModel.setQuery(localState.searchStatus.searchText)
         }
     }
 
@@ -255,850 +116,91 @@ fun ModuleScreen(
         uiState.sortUpdateFirst,
         uiState.sortExecutableFirst,
     ) {
-        prefs.edit {
-            putBoolean(MODULE_SORT_ENABLED_FIRST_KEY, uiState.sortEnabledFirst)
-            putBoolean(MODULE_SORT_UPDATE_FIRST_KEY, uiState.sortUpdateFirst)
-            putBoolean(MODULE_SORT_EXECUTABLE_FIRST_KEY, uiState.sortExecutableFirst)
-        }
+        sortPreferences.persist(uiState)
     }
 
     MiuixTheme {
-        // 在线模块安装/更新对话框
-        OnlineModuleInstallDialog(
-            state = viewModel.onlineInstallDialogState,
-            context = context,
-            onDismiss = { viewModel.dismissOnlineInstallDialog() },
-            onDownload = {
-                val module = viewModel.onlineInstallDialogState.module ?: return@OnlineModuleInstallDialog
-                val subject = OnlineModuleInstallDialog.Module(module, false)
-                uiActivity?.let { DownloadEngine.startWithActivity(it, subject) }
-            },
-            onInstall = {
-                val module = viewModel.onlineInstallDialogState.module ?: return@OnlineModuleInstallDialog
-                val subject = OnlineModuleInstallDialog.Module(module, true)
-                uiActivity?.let { DownloadEngine.startWithActivity(it, subject) }
-            }
-        )
-
-        // 本地模块安装确认对话框
-        LocalModuleInstallDialog(
-            state = viewModel.localInstallDialogState,
-            context = context,
-            onDismiss = { viewModel.dismissLocalInstallDialog() },
-            onConfirm = {
-                val uri = viewModel.localInstallDialogState.uri ?: return@LocalModuleInstallDialog
-                viewModel.dismissLocalInstallDialog()
-                onInstallModuleFromLocal(uri)
-            }
-        )
-        ModuleShortcutTypeDialog(
-            show = showShortcutTypeDialog,
+        ModuleScreenDialogs(
+            uiActivity = uiActivity,
+            onlineInstallDialogState = viewModel.onlineInstallDialogState,
+            localInstallDialogState = viewModel.localInstallDialogState,
             shortcutState = shortcutState,
-            onDismiss = { showShortcutTypeDialog = false },
-            onSelectType = { type ->
-                showShortcutTypeDialog = false
+            showShortcutDialog = localState.showShortcutDialog,
+            showShortcutTypeDialog = localState.showShortcutTypeDialog,
+            onDismissOnlineInstallDialog = viewModel::dismissOnlineInstallDialog,
+            onDismissLocalInstallDialog = viewModel::dismissLocalInstallDialog,
+            onConfirmLocalInstall = onInstallModuleFromLocal,
+            onDismissShortcutTypeDialog = { localState.showShortcutTypeDialog = false },
+            onSelectShortcutType = { type ->
+                localState.showShortcutTypeDialog = false
                 shortcutState.selectType(type)
-                showShortcutDialog = true
-            }
-        )
-        ModuleShortcutDialog(
-            show = showShortcutDialog,
-            shortcutState = shortcutState,
-            onDismiss = { showShortcutDialog = false },
-            onPickShortcutIcon = { shortcutIconPicker.launch("image/*") },
-            onDeleteShortcut = {
-                shortcutState.deleteShortcut(context)
-                showShortcutDialog = false
+                localState.showShortcutDialog = true
             },
-            onConfirmShortcut = {
-                scope.launch {
-                    if (shortcutState.createShortcut(context)) {
-                        showShortcutDialog = false
-                    }
-                }
-            }
+            onDismissShortcutDialog = { localState.showShortcutDialog = false },
+            onPickShortcutIcon = launchShortcutIconPicker,
         )
 
         Scaffold(
             modifier = modifier,
             popupHost = {
-                uiSearchStatus.SearchPager(
-                    onSearchStatusChange = { searchStatus = it },
-                    defaultResult = {},
-                    resultModifier = Modifier.padding(horizontal = 16.dp),
-                    resultContentPadding = PaddingValues(top = 8.dp, bottom = contentBottomPadding),
-                ) {
-                    moduleItems(
-                        modules = uiState.modules,
-                        viewModel = viewModel,
-                        onOpenWebUi = onOpenWebUi,
-                        onAddShortcut = ::onModuleAddShortcut,
-                    )
-                }
+                ModuleSearchResultsHost(
+                    uiSearchStatus = uiSearchStatus,
+                    modules = uiState.modules,
+                    contentBottomPadding = contentBottomPadding,
+                    onSearchStatusChange = { localState.searchStatus = it },
+                    onToggleModule = { module, enabled -> viewModel.toggleModule(module.id, enabled) },
+                    onRunAction = { module -> viewModel.runAction(module.id, module.name) },
+                    onOpenWebUi = { module -> onOpenWebUi(module.id, module.name) },
+                    onAddShortcut = ::onModuleAddShortcut,
+                    onDownloadUpdate = { module -> viewModel.downloadPressed(module.updateInfo) },
+                    onToggleModuleRemove = { module -> viewModel.toggleModuleRemove(module.id) },
+                )
             },
-            contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
+            contentWindowInsets = WindowInsets.systemBars
+                .add(WindowInsets.displayCutout)
+                .only(WindowInsetsSides.Horizontal),
             topBar = {
-                uiSearchStatus.TopAppBarAnim(
-                    hazeState = if (enableBlur) hazeState else null,
-                    hazeStyle = if (enableBlur) hazeStyle else null,
-                ) {
-                    TopAppBar(
-                        color = if (enableBlur) Color.Transparent else MiuixTheme.colorScheme.surface,
-                        title = context.getString(CoreR.string.modules),
-                        titleColor = MiuixTheme.colorScheme.onBackground,
-                        largeTitleColor = MiuixTheme.colorScheme.onBackground,
-                        scrollBehavior = scrollBehavior,
-                        actions = {
-                            SuperListPopup(
-                                show = showTopPopup.value,
-                                popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
-                                alignment = PopupPositionProvider.Align.TopEnd,
-                                onDismissRequest = {
-                                    showTopPopup.value = false
-                                }
-                            ) {
-                                ListPopupColumn {
-                                    DropdownImpl(
-                                        text = stringResource(CoreR.string.module_sort_enabled_first_label),
-                                        isSelected = uiState.sortEnabledFirst,
-                                        optionSize = 3,
-                                        onSelectedIndexChange = {
-                                            viewModel.setSortEnabledFirst(!uiState.sortEnabledFirst)
-                                        },
-                                        index = 0
-                                    )
-                                    DropdownImpl(
-                                        text = stringResource(CoreR.string.module_sort_update_first_label),
-                                        isSelected = uiState.sortUpdateFirst,
-                                        optionSize = 3,
-                                        onSelectedIndexChange = {
-                                            viewModel.setSortUpdateFirst(!uiState.sortUpdateFirst)
-                                        },
-                                        index = 1
-                                    )
-                                    DropdownImpl(
-                                        text = stringResource(CoreR.string.module_sort_executable_first_label),
-                                        isSelected = uiState.sortExecutableFirst,
-                                        optionSize = 3,
-                                        onSelectedIndexChange = {
-                                            viewModel.setSortExecutableFirst(!uiState.sortExecutableFirst)
-                                        },
-                                        index = 2
-                                    )
-                                }
-                            }
-
-                            IconButton(
-                                modifier = Modifier.padding(end = 8.dp),
-                                onClick = {
-                                    showTopPopup.value = true
-                                },
-                                holdDownState = showTopPopup.value
-                            ) {
-                                Icon(
-                                    imageVector = MiuixIcons.MoreCircle,
-                                    contentDescription = stringResource(CoreR.string.more_options_description)
-                                )
-                            }
-
-                            RebootListPopup(
-                                modifier = Modifier.padding(end = 16.dp),
-                                alignment = PopupPositionProvider.Align.TopEnd,
-                            )
-                        }
-                    )
-                }
+                ModuleScreenTopBar(
+                    uiSearchStatus = uiSearchStatus,
+                    uiState = uiState,
+                    enableBlur = enableBlur,
+                    hazeState = hazeState,
+                    hazeStyle = hazeStyle,
+                    scrollBehavior = scrollBehavior,
+                    showTopPopup = localState.showTopPopup,
+                    onShowTopPopupChange = { localState.showTopPopup = it },
+                    onToggleSortEnabledFirst = {
+                        viewModel.setSortEnabledFirst(!uiState.sortEnabledFirst)
+                    },
+                    onToggleSortUpdateFirst = {
+                        viewModel.setSortUpdateFirst(!uiState.sortUpdateFirst)
+                    },
+                    onToggleSortExecutableFirst = {
+                        viewModel.setSortExecutableFirst(!uiState.sortExecutableFirst)
+                    },
+                )
             },
             content = { innerPadding ->
-                uiSearchStatus.SearchBox(
-                    onSearchStatusChange = { searchStatus = it },
-                    contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding(),
-                        start = innerPadding.calculateStartPadding(layoutDirection),
-                        end = innerPadding.calculateEndPadding(layoutDirection)
-                    ),
-                    hazeState = if (enableBlur) hazeState else null,
-                    hazeStyle = if (enableBlur) hazeStyle else null,
-                ) { boxHeight ->
-                    PullToRefresh(
-                        modifier = Modifier.fillMaxSize(),
-                        isRefreshing = uiState.isRefreshing,
-                        pullToRefreshState = pullToRefreshState,
-                        contentPadding = PaddingValues(top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp),
-                        topAppBarScrollBehavior = scrollBehavior,
-                        refreshTexts = listOf(
-                            context.getString(CoreR.string.pull_down_to_refresh),
-                            context.getString(CoreR.string.release_to_refresh),
-                            context.getString(CoreR.string.refreshing),
-                            context.getString(CoreR.string.refreshed_successfully)
-                        ),
-                        onRefresh = {
-                            if (!uiState.isRefreshing) {
-                                viewModel.refresh()
-                            }
-                        }
-                    ) {
-                        when {
-                            uiState.isLoading && uiState.modules.isEmpty() -> {
-                                LoadingContent(
-                                    modifier = Modifier.padding(
-                                        top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
-                                        start = innerPadding.calculateStartPadding(layoutDirection),
-                                        end = innerPadding.calculateEndPadding(layoutDirection),
-                                        bottom = contentBottomPadding
-                                    )
-                                )
-                            }
-                            uiState.modules.isEmpty() -> {
-                                EmptyContent(
-                                    onInstallPressed = {
-                                        localModulePicker.launch(
-                                            arrayOf("application/zip", "application/octet-stream")
-                                        )
-                                    },
-                                    modifier = Modifier.padding(
-                                        top = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
-                                        start = innerPadding.calculateStartPadding(layoutDirection),
-                                        end = innerPadding.calculateEndPadding(layoutDirection),
-                                        bottom = contentBottomPadding
-                                    )
-                                )
-                            }
-                            else -> {
-                                ModuleList(
-                                    viewModel = viewModel,
-                                    modules = uiState.modules,
-                                    enableBlur = enableBlur,
-                                    hazeState = hazeState,
-                                    onInstallPressed = {
-                                        localModulePicker.launch(
-                                            arrayOf("application/zip", "application/octet-stream")
-                                        )
-                                    },
-                                    onOpenWebUi = onOpenWebUi,
-                                    onAddShortcut = ::onModuleAddShortcut,
-                                    topContentPadding = innerPadding.calculateTopPadding() + boxHeight.value + 6.dp,
-                                    contentBottomPadding = contentBottomPadding,
-                                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+                ModuleScreenContent(
+                    innerPadding = innerPadding,
+                    uiState = uiState,
+                    uiSearchStatus = uiSearchStatus,
+                    contentBottomPadding = contentBottomPadding,
+                    enableBlur = enableBlur,
+                    hazeState = hazeState,
+                    hazeStyle = hazeStyle,
+                    scrollBehavior = scrollBehavior,
+                    onSearchStatusChange = { localState.searchStatus = it },
+                    onRefresh = viewModel::refresh,
+                    onInstallPressed = launchLocalModulePicker,
+                    onToggleModule = { module, enabled -> viewModel.toggleModule(module.id, enabled) },
+                    onRunAction = { module -> viewModel.runAction(module.id, module.name) },
+                    onOpenWebUi = { module -> onOpenWebUi(module.id, module.name) },
+                    onAddShortcut = ::onModuleAddShortcut,
+                    onDownloadUpdate = { module -> viewModel.downloadPressed(module.updateInfo) },
+                    onToggleModuleRemove = { module -> viewModel.toggleModuleRemove(module.id) },
+                )
+            },
         )
-    }
-}
-
-private const val MODULE_SORT_ENABLED_FIRST_KEY = "module_sort_enabled_first"
-private const val MODULE_SORT_UPDATE_FIRST_KEY = "module_sort_update_first"
-private const val MODULE_SORT_EXECUTABLE_FIRST_KEY = "module_sort_executable_first"
-
-/**
- * 加载状态显示
- */
-@Composable
-private fun LoadingContent(
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = context.getString(CoreR.string.loading),
-                style = MiuixTheme.textStyles.title3,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            CircularProgressIndicator()
-        }
-    }
-}
-
-/**
- * 空状态显示
- */
-@Composable
-private fun EmptyContent(
-    onInstallPressed: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        InstallModuleEntryButton(onClick = onInstallPressed)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = context.getString(CoreR.string.module_empty),
-            style = MiuixTheme.textStyles.title3,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-/**
- * 模块列表
- * 使用 LazyColumn 显示所有模块项
- *
- * @param viewModel 模块 ViewModel
- * @param modules 模块列表
- * @param contentBottomPadding 主页面内容底部留白
- * @param modifier Modifier
- */
-@Composable
-@OptIn(ExperimentalScrollBarApi::class)
-private fun ModuleList(
-    viewModel: ModuleViewModel,
-    modules: List<ModuleInfo>,
-    enableBlur: Boolean,
-    hazeState: HazeState,
-    onInstallPressed: () -> Unit,
-    onOpenWebUi: (String, String) -> Unit,
-    onAddShortcut: (ModuleInfo) -> Unit,
-    topContentPadding: Dp,
-    contentBottomPadding: Dp,
-    modifier: Modifier = Modifier
-) {
-    val listState = rememberLazyListState()
-
-    Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .scrollEndHaptic()
-                .overScrollVertical()
-                .padding(horizontal = 16.dp)
-                .then(if (enableBlur) Modifier.hazeSource(state = hazeState) else Modifier),
-            contentPadding = PaddingValues(top = topContentPadding, bottom = contentBottomPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            overscrollEffect = null
-        ) {
-            item {
-                InstallModuleEntryButton(onClick = onInstallPressed)
-            }
-
-            items(
-                items = modules,
-                key = { it.id }
-            ) { module ->
-                ModuleItem(
-                    module = module,
-                    viewModel = viewModel,
-                    onOpenWebUi = onOpenWebUi,
-                    onAddShortcut = onAddShortcut,
-                )
-            }
-        }
-
-        VerticalScrollBar(
-            adapter = rememberScrollBarAdapter(listState),
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight(),
-            trackPadding = PaddingValues(top = topContentPadding, bottom = contentBottomPadding),
-        )
-    }
-}
-
-private fun LazyListScope.moduleItems(
-    modules: List<ModuleInfo>,
-    viewModel: ModuleViewModel,
-    onOpenWebUi: (String, String) -> Unit,
-    onAddShortcut: (ModuleInfo) -> Unit,
-) {
-    items(
-        items = modules,
-        key = { it.id }
-    ) { module ->
-        ModuleItem(
-            module = module,
-            viewModel = viewModel,
-            onOpenWebUi = onOpenWebUi,
-            onAddShortcut = onAddShortcut,
-        )
-    }
-}
-
-@Composable
-private fun ModuleShortcutTypeDialog(
-    show: Boolean,
-    shortcutState: ModuleShortcutState,
-    onDismiss: () -> Unit,
-    onSelectType: (ShortcutType) -> Unit,
-) {
-    if (!show) return
-
-    SuperDialog(
-        show = show,
-        title = stringResource(CoreR.string.module_shortcut_type_title),
-        onDismissRequest = onDismiss,
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (shortcutState.supportsActionShortcut) {
-                TextButton(
-                    text = stringResource(CoreR.string.module_action),
-                    onClick = { onSelectType(ShortcutType.Action) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-            if (shortcutState.supportsWebUiShortcut) {
-                TextButton(
-                    text = stringResource(CoreR.string.module_webui),
-                    onClick = { onSelectType(ShortcutType.WebUI) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-            TextButton(
-                text = stringResource(android.R.string.cancel),
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ModuleShortcutDialog(
-    show: Boolean,
-    shortcutState: ModuleShortcutState,
-    onDismiss: () -> Unit,
-    onPickShortcutIcon: () -> Unit,
-    onDeleteShortcut: () -> Unit,
-    onConfirmShortcut: () -> Unit,
-) {
-    if (!show) return
-    val context = LocalContext.current
-    val fallbackIcon = remember(context) {
-        runCatching { context.getBitmap(CoreR.drawable.ic_launcher).asImageBitmap() }.getOrNull()
-    }
-
-    SuperDialog(
-        show = show,
-        title = stringResource(CoreR.string.module_shortcut_title),
-        onDismissRequest = onDismiss,
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                val preview = shortcutState.previewIcon
-                if (preview != null) {
-                    Image(
-                        bitmap = preview,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    fallbackIcon?.let { icon ->
-                        Image(
-                            bitmap = icon,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    text = stringResource(CoreR.string.module_shortcut_icon_pick),
-                    onClick = onPickShortcutIcon,
-                    modifier = Modifier.weight(1f),
-                )
-                if (shortcutState.iconUri != shortcutState.defaultShortcutIconUri) {
-                    TextButton(
-                        text = stringResource(CoreR.string.module_shortcut_icon_reset),
-                        onClick = shortcutState::resetIconToDefault,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
-            TextField(
-                value = shortcutState.name,
-                onValueChange = shortcutState::updateName,
-                modifier = Modifier.fillMaxWidth(),
-                label = stringResource(CoreR.string.module_shortcut_name_label),
-                singleLine = true,
-                useLabelAsPlaceholder = true,
-            )
-
-            if (shortcutState.hasExistingShortcut) {
-                TextButton(
-                    text = stringResource(CoreR.string.module_shortcut_delete),
-                    onClick = onDeleteShortcut,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    text = stringResource(
-                        if (shortcutState.hasExistingShortcut) {
-                            CoreR.string.update
-                        } else {
-                            CoreR.string.module_shortcut_add
-                        }
-                    ),
-                    onClick = onConfirmShortcut,
-                    enabled = shortcutState.name.isNotBlank(),
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-        }
-    }
-}
-
-/**
- * 安装模块入口按钮
- */
-@Composable
-private fun InstallModuleEntryButton(
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors()
-    ) {
-        Icon(
-            imageVector = MiuixIcons.Download,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(text = context.getString(CoreR.string.module_action_install_external))
-    }
-}
-
-/**
- * 单个模块项组件
- * 显示模块信息、开关、删除/恢复按钮等
- * 支持点击卡片展开/收起描述，有 WebUI 时点击跳转 WebUI
- *
- * @param module 模块信息
- * @param viewModel 模块 ViewModel
- * @param onOpenWebUi 打开 WebUI 回调
- */
-@Composable
-private fun ModuleItem(
-    module: ModuleInfo,
-    viewModel: ModuleViewModel,
-    onOpenWebUi: (String, String) -> Unit,
-    onAddShortcut: (ModuleInfo) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-
-    // 当模块被移除、显示警告或待重启时，禁用开关
-    // 但当Zygisk未启用时，允许切换Zygisk模块的启用/禁用状态
-    val isSwitchEnabled = !module.removed && !module.updated && (!module.showNotice || (!Info.isZygiskEnabled && module.isZygisk))
-    val hasDescription = module.description.isNotEmpty()
-    var expanded by rememberSaveable(module.id) { mutableStateOf(false) }
-
-    val textDecoration = if (module.removed) TextDecoration.LineThrough else null
-    val cardAlpha = if (module.enabled && !module.removed) 1f else 0.5f
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer { alpha = cardAlpha },
-        cornerRadius = 12.dp,
-        insideMargin = PaddingValues(16.dp),
-        pressFeedbackType = PressFeedbackType.Sink,
-        onClick = {
-            if (module.showWebUi) {
-                onOpenWebUi(module.id, module.name)
-            } else if (hasDescription) {
-                expanded = !expanded
-            }
-        }
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 4.dp)
-            ) {
-                Text(
-                    text = module.name,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight(550),
-                    color = MiuixTheme.colorScheme.onSurface,
-                    textDecoration = textDecoration,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${module.version} by ${module.author}",
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 2.dp),
-                    fontWeight = FontWeight(550),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    textDecoration = textDecoration
-                )
-            }
-            Switch(
-                checked = module.enabled,
-                enabled = isSwitchEnabled,
-                onCheckedChange = { checked ->
-                    viewModel.toggleModule(module.id, checked)
-                }
-            )
-        }
-
-        if (hasDescription) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .animateContentSize(
-                        animationSpec = tween(
-                            durationMillis = 250,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-            ) {
-                Text(
-                    text = module.description,
-                    fontSize = 14.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
-                    maxLines = if (expanded) Int.MAX_VALUE else 4,
-                    textDecoration = textDecoration
-                )
-            }
-        }
-
-        if (module.showNotice) {
-            Text(
-                text = module.noticeText.getText(context.resources).toString(),
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 8.dp),
-                color = MiuixTheme.colorScheme.error,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 0.5.dp,
-            color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // 操作按钮 - 图标+文字样式
-            if (module.showAction && module.enabled && !module.removed) {
-                val secondaryContainer = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
-                val actionIconTint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-                IconButton(
-                    minHeight = 32.dp,
-                    minWidth = 32.dp,
-                    onClick = { viewModel.runAction(module.id, module.name) },
-                    enabled = module.enabled,
-                    backgroundColor = secondaryContainer,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = MiuixIcons.Play,
-                            tint = actionIconTint,
-                            contentDescription = context.getString(CoreR.string.module_action)
-                        )
-                        Text(
-                            text = context.getString(CoreR.string.module_action),
-                            color = actionIconTint,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-
-            // WebUI 按钮 - 图标+文字样式
-            if (module.showWebUi) {
-                val webUiBg = MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                val webUiTint = MiuixTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
-                IconButton(
-                    minHeight = 32.dp,
-                    minWidth = 32.dp,
-                    onClick = { onOpenWebUi(module.id, module.name) },
-                    backgroundColor = webUiBg,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = Icons.Rounded.Code,
-                            tint = webUiTint,
-                            contentDescription = context.getString(CoreR.string.module_webui)
-                        )
-                        Text(
-                            text = context.getString(CoreR.string.module_webui),
-                            color = webUiTint,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-
-            if (module.showShortcutButton) {
-                val shortcutBg = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
-                val shortcutTint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-                IconButton(
-                    minHeight = 32.dp,
-                    minWidth = 32.dp,
-                    onClick = { onAddShortcut(module) },
-                    backgroundColor = shortcutBg,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = Icons.Rounded.Add,
-                            tint = shortcutTint,
-                            contentDescription = context.getString(CoreR.string.module_shortcut_button)
-                        )
-                        Text(
-                            text = context.getString(CoreR.string.module_shortcut_button),
-                            color = shortcutTint,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // 更新按钮 - 图标+文字样式
-            if (module.showUpdate) {
-                val updateBg = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-                val updateTint = MiuixTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                IconButton(
-                    backgroundColor = updateBg,
-                    enabled = module.updateReady,
-                    minHeight = 32.dp,
-                    minWidth = 32.dp,
-                    onClick = { viewModel.downloadPressed(module.updateInfo) },
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = MiuixIcons.UploadCloud,
-                            tint = updateTint,
-                            contentDescription = context.getString(CoreR.string.update),
-                        )
-                        Text(
-                            text = context.getString(CoreR.string.update),
-                            color = updateTint,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-
-            // 移除/恢复按钮 - 图标+文字样式
-            val secondaryContainer = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
-            val actionIconTint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-            IconButton(
-                minHeight = 32.dp,
-                minWidth = 32.dp,
-                onClick = { viewModel.toggleModuleRemove(module.id) },
-                enabled = !module.updated,
-                backgroundColor = if (module.removed) {
-                    secondaryContainer.copy(alpha = 0.8f)
-                } else {
-                    secondaryContainer
-                },
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        imageVector = if (module.removed) {
-                            MiuixIcons.Undo
-                        } else {
-                            MiuixIcons.Delete
-                        },
-                        tint = actionIconTint,
-                        contentDescription = null
-                    )
-                    Text(
-                        text = if (module.removed) {
-                            context.getString(CoreR.string.module_state_restore)
-                        } else {
-                            context.getString(CoreR.string.module_state_remove)
-                        },
-                        color = actionIconTint,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        }
     }
 }
