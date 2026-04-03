@@ -26,8 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.runtime.Composable
@@ -59,7 +59,6 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import io.github.seyud.weave.ui.util.defaultHazeEffect
 import io.github.seyud.weave.core.model.su.SuLog
-import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.core.ktx.timeDateFormat
 import io.github.seyud.weave.core.ktx.toTime
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
@@ -82,6 +81,7 @@ import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import kotlinx.coroutines.launch
+import io.github.seyud.weave.core.R as CoreR
 
 @Composable
 fun LogScreen(

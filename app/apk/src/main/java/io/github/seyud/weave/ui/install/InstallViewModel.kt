@@ -4,8 +4,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.Spanned
-import androidx.core.os.BundleCompat
 import android.text.SpannedString
+import androidx.core.os.BundleCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf

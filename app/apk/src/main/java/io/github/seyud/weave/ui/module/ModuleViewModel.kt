@@ -1,6 +1,7 @@
 package io.github.seyud.weave.ui.module
 
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,19 +17,17 @@ import io.github.seyud.weave.dialog.LocalModuleInstallDialog
 import io.github.seyud.weave.dialog.OnlineModuleInstallDialog
 import io.github.seyud.weave.events.GetContentEvent
 import io.github.seyud.weave.events.SnackbarEvent
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import timber.log.Timber
 import io.github.seyud.weave.core.R as CoreR
-
-import androidx.compose.runtime.Immutable
 
 /**
  * 模块页 UI 状态

@@ -24,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -37,11 +36,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
-import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import timber.log.Timber
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import io.github.seyud.weave.arch.BaseViewModel
 import io.github.seyud.weave.arch.ActivityExecutor
@@ -60,6 +58,8 @@ import io.github.seyud.weave.core.base.SplashScreenHost
 import io.github.seyud.weave.core.isRunningAsStub
 import io.github.seyud.weave.core.ktx.toast
 import io.github.seyud.weave.core.tasks.AppMigration
+import io.github.seyud.weave.events.SnackbarEvent
+import io.github.seyud.weave.ui.component.MiuixConfirmDialog
 import io.github.seyud.weave.ui.flash.FlashViewModel
 import io.github.seyud.weave.ui.home.HomeViewModel
 import io.github.seyud.weave.ui.install.InstallViewModel
@@ -67,24 +67,24 @@ import io.github.seyud.weave.ui.log.LogViewModel
 import io.github.seyud.weave.ui.module.ModuleInstallTarget
 import io.github.seyud.weave.ui.module.ModuleViewModel
 import io.github.seyud.weave.ui.module.state.copyModuleDocumentsToCache
-import io.github.seyud.weave.events.SnackbarEvent
-import io.github.seyud.weave.ui.component.MiuixConfirmDialog
 import io.github.seyud.weave.ui.settings.SettingsViewModel
 import io.github.seyud.weave.ui.superuser.SuperuserViewModel
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
 import io.github.seyud.weave.ui.theme.LocalEnableFloatingBottomBar
 import io.github.seyud.weave.ui.theme.LocalEnableFloatingBottomBarBlur
 import io.github.seyud.weave.ui.theme.Theme
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SnackbarHostState
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.seyud.weave.ui.theme.WeaveMagiskTheme
 import io.github.seyud.weave.view.MagiskDialog
 import io.github.seyud.weave.view.MagiskDialogHost
 import io.github.seyud.weave.view.MagiskDialogHostContent
 import io.github.seyud.weave.view.Shortcuts
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.File
 import io.github.seyud.weave.core.R as CoreR
 

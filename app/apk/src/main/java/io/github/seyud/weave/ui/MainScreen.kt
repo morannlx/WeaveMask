@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
-import io.github.seyud.weave.ui.icon.SuperuserIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -57,15 +56,15 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import io.github.seyud.weave.core.Info
 import io.github.seyud.weave.core.Const
+import io.github.seyud.weave.core.Info
 import io.github.seyud.weave.core.intent
-import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.core.model.module.LocalModule
 import io.github.seyud.weave.core.utils.MediaStoreUtils
 import io.github.seyud.weave.dialog.LocalModuleInstallDialog
 import io.github.seyud.weave.ui.component.FloatingBottomBar
 import io.github.seyud.weave.ui.component.FloatingBottomBarItem
+import io.github.seyud.weave.ui.icon.SuperuserIcon
 import io.github.seyud.weave.ui.navigation3.LocalNavigator
 import io.github.seyud.weave.ui.navigation3.Navigator
 import io.github.seyud.weave.ui.navigation3.Route
@@ -118,6 +117,7 @@ import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.seyud.weave.ui.theme.WeaveMagiskTheme
+import io.github.seyud.weave.core.R as CoreR
 
 private val MainTabContentBottomSpacing = 12.dp
 

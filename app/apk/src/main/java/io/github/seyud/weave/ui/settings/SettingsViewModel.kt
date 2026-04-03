@@ -2,6 +2,7 @@ package io.github.seyud.weave.ui.settings
 
 import android.content.Context
 import android.widget.Toast
+import androidx.lifecycle.viewModelScope
 import io.github.seyud.weave.arch.BaseViewModel
 import io.github.seyud.weave.core.AppContext
 import io.github.seyud.weave.core.ktx.toast
@@ -9,7 +10,6 @@ import io.github.seyud.weave.core.tasks.AppMigration
 import io.github.seyud.weave.core.utils.RootUtils
 import io.github.seyud.weave.events.AddHomeIconEvent
 import io.github.seyud.weave.events.AuthEvent
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import io.github.seyud.weave.core.R as CoreR
 

@@ -29,18 +29,18 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import io.github.seyud.weave.ui.util.defaultHazeEffect
 import io.github.seyud.weave.ui.theme.LocalEnableBlur
+import io.github.seyud.weave.utils.TextHolder
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.core.Info
-import io.github.seyud.weave.utils.TextHolder
+import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.ui.module.RebootListPopup
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 
 /**
  * 主页面屏幕
