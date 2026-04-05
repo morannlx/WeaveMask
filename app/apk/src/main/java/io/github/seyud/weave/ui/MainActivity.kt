@@ -60,6 +60,7 @@ import io.github.seyud.weave.core.ktx.toast
 import io.github.seyud.weave.core.tasks.AppMigration
 import io.github.seyud.weave.events.SnackbarEvent
 import io.github.seyud.weave.ui.component.MiuixConfirmDialog
+import io.github.seyud.weave.ui.flash.FlashRequest
 import io.github.seyud.weave.ui.flash.FlashViewModel
 import io.github.seyud.weave.ui.home.HomeViewModel
 import io.github.seyud.weave.ui.install.InstallViewModel
@@ -145,6 +146,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
 
     /** Intent 状态流，用于触发 LaunchedEffect 重新执行 */
     private val intentState = MutableStateFlow(0)
+    private val pendingFlashRequestState = MutableStateFlow<FlashRequest?>(null)
     private val snackbarHostState = SnackbarHostState()
 
     /**
@@ -157,6 +159,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        pendingFlashRequestState.value = consumePendingFlashRequest()
         intentState.value += 1
     }
 
@@ -193,17 +196,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     override fun onCreateUi(savedInstanceState: Bundle?) {
         val initialMainTab = intent.getIntExtra(EXTRA_START_MAIN_TAB, 0)
         intent.removeExtra(EXTRA_START_MAIN_TAB)
-
-        // 从下载完成的 PendingIntent 中提取 flash 参数
-        val pendingFlashAction = intent.getStringExtra(EXTRA_FLASH_ACTION)
-        val pendingFlashUris = intent.getStringArrayListExtra(EXTRA_FLASH_URIS)
-            ?.map(Uri::parse)
-            ?.takeIf { it.isNotEmpty() }
-            ?: intent.getStringExtra(EXTRA_FLASH_URI)?.let { listOf(Uri.parse(it)) }
-            ?: emptyList()
-        intent.removeExtra(EXTRA_FLASH_ACTION)
-        intent.removeExtra(EXTRA_FLASH_URI)
-        intent.removeExtra(EXTRA_FLASH_URIS)
+        pendingFlashRequestState.value = consumePendingFlashRequest()
 
         // 检查是否通过"打开方式"启动（首次启动时检查）
         val initialExternalZipUris = checkForExternalZipIntent(intent)
@@ -211,6 +204,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
         // 设置 Compose 内容
         setContent {
             val intentVersion by intentState.collectAsStateWithLifecycle()
+            val pendingFlashRequest by pendingFlashRequestState.collectAsStateWithLifecycle()
             var colorMode by remember { mutableIntStateOf(Config.colorMode) }
             var keyColorInt by remember { mutableIntStateOf(Config.keyColor) }
             val keyColor = remember(keyColorInt) {
@@ -282,8 +276,10 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                             settingsViewModel = settingsViewModel,
                             initialMainTab = initialMainTab,
                             intentVersion = intentVersion,
-                            pendingFlashAction = pendingFlashAction,
-                            pendingFlashUris = pendingFlashUris,
+                            pendingFlashRequest = pendingFlashRequest,
+                            onPendingFlashRequestConsumed = {
+                                pendingFlashRequestState.value = null
+                            },
                             externalZipUris = externalZipUris,
                             onExternalZipHandled = { externalZipUris = null },
                             colorMode = colorMode,
@@ -636,6 +632,28 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
             mimeType == "application/zip" ||
             mimeType == "application/octet-stream" ||
             mimeType.contains("zip")
+    }
+
+    internal fun consumePendingFlashRequest(): FlashRequest? {
+        val currentIntent = intent ?: return null
+        val action = currentIntent.getStringExtra(EXTRA_FLASH_ACTION) ?: return null
+        val uris = currentIntent.getStringArrayListExtra(EXTRA_FLASH_URIS)
+            ?.map(Uri::parse)
+            ?.takeIf { it.isNotEmpty() }
+            ?: currentIntent.getStringExtra(EXTRA_FLASH_URI)?.let { listOf(Uri.parse(it)) }
+            ?: emptyList()
+        val startMainTab = currentIntent.getIntExtra(EXTRA_START_MAIN_TAB, -1)
+            .takeIf { it >= 0 }
+
+        currentIntent.removeExtra(EXTRA_FLASH_ACTION)
+        currentIntent.removeExtra(EXTRA_FLASH_URI)
+        currentIntent.removeExtra(EXTRA_FLASH_URIS)
+        currentIntent.removeExtra(EXTRA_START_MAIN_TAB)
+        if (currentIntent.action == FlashRequest.INTENT_FLASH) {
+            currentIntent.action = null
+        }
+
+        return FlashRequest(action = action, dataUris = uris, startMainTab = startMainTab)
     }
 
     /**

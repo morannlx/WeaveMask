@@ -8,6 +8,7 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -29,6 +30,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -83,6 +85,7 @@ import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.sqrt
 import io.github.seyud.weave.ui.flash.FlashScreen
+import io.github.seyud.weave.ui.flash.FlashRequest
 import io.github.seyud.weave.ui.flash.FlashViewModel
 import io.github.seyud.weave.ui.home.HomeScreen
 import io.github.seyud.weave.ui.home.HomeViewModel
@@ -213,8 +216,8 @@ fun MainScreen(
     settingsViewModel: SettingsViewModel,
     initialMainTab: Int = 0,
     intentVersion: Int = 0,
-    pendingFlashAction: String? = null,
-    pendingFlashUris: List<Uri> = emptyList(),
+    pendingFlashRequest: FlashRequest? = null,
+    onPendingFlashRequestConsumed: () -> Unit = {},
     externalZipUris: List<ModuleInstallTarget>? = null,
     onExternalZipHandled: () -> Unit = {},
     colorMode: Int = 0,
@@ -229,13 +232,6 @@ fun MainScreen(
     }
     val currentRoute by remember(navigator) {
         derivedStateOf { navigator.current() }
-    }
-
-    // 处理来自下载完成通知的 flash 导航请求
-    LaunchedEffect(pendingFlashAction, pendingFlashUris) {
-        if (pendingFlashAction != null) {
-            navigator.push(Route.Flash(pendingFlashAction, pendingFlashUris.map(Uri::toString)))
-        }
     }
 
     // 处理外部应用通过"打开方式"打开的 ZIP 文件
@@ -282,99 +278,131 @@ fun MainScreen(
         CompositionLocalProvider(
             LocalNavigator provides navigator,
         ) {
-            ShortcutIntentHandler(intentVersion = intentVersion)
-            Scaffold(
-                snackbarHost = {
-                    SnackbarHost(
-                        state = snackbarHostState,
-                        modifier = Modifier.padding(bottom = snackbarBottomPadding)
-                    )
-                }
-            ) { _ ->
-                NavDisplay(
-                    backStack = navigator.backStack,
-                    entryDecorators = listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator()
-                    ),
-                    onBack = { navigator.pop() },
-                    modifier = modifier.fillMaxSize(),
-                    entryProvider = entryProvider {
-                        entry<Route.Main> {
-                            MainTabScreen(
-                                navigator = navigator,
-                                homeViewModel = homeViewModel,
-                                moduleViewModel = moduleViewModel,
-                                superuserViewModel = superuserViewModel,
-                                settingsViewModel = settingsViewModel,
-                                logViewModel = logViewModel,
-                                initialMainTab = rememberedMainTab,
-                                onCurrentTabChanged = { rememberedMainTab = it },
-                                onSnackbarBottomPaddingChanged = { snackbarBottomPadding = it }
-                            )
-                        }
-                        entry<Route.Install> {
-                            InstallScreen(
-                                viewModel = installViewModel,
-                                onNavigateBack = { navigator.pop() },
-                                onNavigateToFlash = { action, uri ->
-                                    navigator.pop() // pop Install
-                                    navigator.push(
-                                        Route.Flash(
-                                            action,
-                                            uri?.let { listOf(it.toString()) } ?: emptyList()
+            FlashIntentHandler(
+                pendingFlashRequest = pendingFlashRequest,
+                navigator = navigator,
+                onSelectMainTab = { rememberedMainTab = it.coerceIn(0, 3) },
+                onConsumed = onPendingFlashRequestConsumed,
+            )
+            Box(modifier = modifier.fillMaxSize()) {
+                ShortcutIntentHandler(intentVersion = intentVersion)
+                Scaffold(
+                    snackbarHost = {
+                        SnackbarHost(
+                            state = snackbarHostState,
+                            modifier = Modifier.padding(bottom = snackbarBottomPadding)
+                        )
+                    }
+                ) { _ ->
+                    NavDisplay(
+                        backStack = navigator.backStack,
+                        entryDecorators = listOf(
+                            rememberSaveableStateHolderNavEntryDecorator(),
+                            rememberViewModelStoreNavEntryDecorator()
+                        ),
+                        onBack = { navigator.pop() },
+                        modifier = Modifier.fillMaxSize(),
+                        entryProvider = entryProvider {
+                            entry<Route.Main> {
+                                MainTabScreen(
+                                    navigator = navigator,
+                                    homeViewModel = homeViewModel,
+                                    moduleViewModel = moduleViewModel,
+                                    superuserViewModel = superuserViewModel,
+                                    settingsViewModel = settingsViewModel,
+                                    logViewModel = logViewModel,
+                                    initialMainTab = rememberedMainTab,
+                                    onCurrentTabChanged = { rememberedMainTab = it },
+                                    onSnackbarBottomPaddingChanged = { snackbarBottomPadding = it }
+                                )
+                            }
+                            entry<Route.Install> {
+                                InstallScreen(
+                                    viewModel = installViewModel,
+                                    onNavigateBack = { navigator.pop() },
+                                    onNavigateToFlash = { action, uri ->
+                                        navigator.pop()
+                                        navigator.push(
+                                            Route.Flash(
+                                                action,
+                                                uri?.let { listOf(it.toString()) } ?: emptyList()
+                                            )
                                         )
-                                    )
-                                }
-                            )
-                        }
-                        entry<Route.Flash> { key ->
-                            val uriArgs = key.uriStrings
-                                .filter { it.isNotEmpty() }
-                                .map(Uri::parse)
+                                    }
+                                )
+                            }
+                            entry<Route.Flash> { key ->
+                                val uriArgs = key.uriStrings
+                                    .filter { it.isNotEmpty() }
+                                    .map(Uri::parse)
 
-                            DisposableEffect(key.action) {
-                                onDispose {
-                                    if (key.action == Const.Value.FLASH_ZIP) {
-                                        moduleViewModel.refresh()
+                                DisposableEffect(key.action) {
+                                    onDispose {
+                                        if (key.action == Const.Value.FLASH_ZIP) {
+                                            moduleViewModel.refresh()
+                                        }
                                     }
                                 }
-                            }
 
-                            FlashScreen(
-                                viewModel = flashViewModel,
-                                action = key.action,
-                                additionalData = uriArgs,
-                                onNavigateBack = { navigator.pop() }
-                            )
+                                FlashScreen(
+                                    viewModel = flashViewModel,
+                                    action = key.action,
+                                    additionalData = uriArgs,
+                                    onNavigateBack = { navigator.pop() }
+                                )
+                            }
+                            entry<Route.Log> {
+                                LogScreen(
+                                    viewModel = logViewModel,
+                                    onNavigateBack = { navigator.pop() }
+                                )
+                            }
+                            entry<Route.AppLanguage> {
+                                AppLanguageScreen(
+                                    onNavigateBack = { navigator.pop() }
+                                )
+                            }
+                            entry<Route.Deny> {
+                                DenyListScreen(
+                                    onNavigateBack = { navigator.pop() }
+                                )
+                            }
+                            entry<Route.Action> { key ->
+                                ActionScreen(
+                                    moduleId = key.moduleId,
+                                    moduleName = key.moduleName,
+                                    fromShortcut = key.fromShortcut,
+                                    onNavigateBack = { navigator.pop() }
+                                )
+                            }
                         }
-                        entry<Route.Log> {
-                            LogScreen(
-                                viewModel = logViewModel,
-                                onNavigateBack = { navigator.pop() }
-                            )
-                        }
-                        entry<Route.AppLanguage> {
-                            AppLanguageScreen(
-                                onNavigateBack = { navigator.pop() }
-                            )
-                        }
-                        entry<Route.Deny> {
-                            DenyListScreen(
-                                onNavigateBack = { navigator.pop() }
-                            )
-                        }
-                        entry<Route.Action> { key ->
-                            ActionScreen(
-                                moduleId = key.moduleId,
-                                moduleName = key.moduleName,
-                                fromShortcut = key.fromShortcut,
-                                onNavigateBack = { navigator.pop() }
-                            )
-                        }
-                    }
-                )
+                    )
+                }
+
+                if (pendingFlashRequest != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MiuixTheme.colorScheme.background)
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun FlashIntentHandler(
+    pendingFlashRequest: FlashRequest?,
+    navigator: Navigator,
+    onSelectMainTab: (Int) -> Unit,
+    onConsumed: () -> Unit,
+) {
+    if (pendingFlashRequest != null) {
+        SideEffect {
+            navigator.push(pendingFlashRequest.toRoute())
+            pendingFlashRequest.startMainTab?.let(onSelectMainTab)
+            onConsumed()
         }
     }
 }
@@ -476,6 +504,14 @@ private fun MainTabScreen(
     LaunchedEffect(currentPage) {
         mainPagerState.syncPage()
         onCurrentTabChanged(currentPage)
+    }
+
+    LaunchedEffect(initialMainTab) {
+        val targetPage = initialMainTab.coerceIn(0, 3)
+        if (targetPage != pagerState.currentPage) {
+            pagerState.scrollToPage(targetPage)
+            mainPagerState.syncPage()
+        }
     }
 
     val destinations = BottomBarDestination.entries

@@ -1,7 +1,6 @@
 package io.github.seyud.weave.ui.module.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +19,7 @@ import io.github.seyud.weave.ui.module.ModuleInfo
 import io.github.seyud.weave.ui.module.ModuleUiState
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -142,13 +142,13 @@ internal fun LoadingContent(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            InfiniteProgressIndicator()
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = context.getString(CoreR.string.loading),
                 style = MiuixTheme.textStyles.title3,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            CircularProgressIndicator()
         }
     }
 }
