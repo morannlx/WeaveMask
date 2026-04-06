@@ -5,39 +5,39 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import io.github.seyud.weave.arch.ActivityExecutor
 import io.github.seyud.weave.arch.ContextExecutor
-import io.github.seyud.weave.arch.ViewEvent
+import io.github.seyud.weave.arch.UiEvent
 import io.github.seyud.weave.ui.MainActivity
 import io.github.seyud.weave.core.base.ContentResultCallback
 import io.github.seyud.weave.core.base.IActivityExtension
 import io.github.seyud.weave.core.base.relaunch
+import io.github.seyud.weave.core.integration.AppShortcuts
+import io.github.seyud.weave.ui.dialog.WeaveDialog
 import io.github.seyud.weave.utils.TextHolder
 import io.github.seyud.weave.utils.asText
-import io.github.seyud.weave.view.MagiskDialog
-import io.github.seyud.weave.view.Shortcuts
 import top.yukonga.miuix.kmp.basic.SnackbarDuration
 
 class PermissionEvent(
     private val permission: String,
     private val callback: (Boolean) -> Unit
-) : ViewEvent(), ActivityExecutor {
+) : UiEvent(), ActivityExecutor {
 
     override fun invoke(activity: AppCompatActivity) =
         (activity as? IActivityExtension)?.withPermission(permission, callback) ?: callback(false)
 }
 
-class BackPressEvent : ViewEvent(), ActivityExecutor {
+class BackPressEvent : UiEvent(), ActivityExecutor {
     override fun invoke(activity: AppCompatActivity) {
         activity.onBackPressedDispatcher.onBackPressed()
     }
 }
 
-class DieEvent : ViewEvent(), ActivityExecutor {
+class DieEvent : UiEvent(), ActivityExecutor {
     override fun invoke(activity: AppCompatActivity) {
         activity.finish()
     }
 }
 
-class RecreateEvent : ViewEvent(), ActivityExecutor {
+class RecreateEvent : UiEvent(), ActivityExecutor {
     override fun invoke(activity: AppCompatActivity) {
         activity.relaunch()
     }
@@ -45,7 +45,7 @@ class RecreateEvent : ViewEvent(), ActivityExecutor {
 
 class AuthEvent(
     private val callback: () -> Unit
-) : ViewEvent(), ActivityExecutor {
+) : UiEvent(), ActivityExecutor {
 
     override fun invoke(activity: AppCompatActivity) {
         (activity as? IActivityExtension)?.withAuthentication { if (it) callback() }
@@ -55,22 +55,22 @@ class AuthEvent(
 class GetContentEvent(
     private val type: String,
     private val callback: ContentResultCallback
-) : ViewEvent(), ActivityExecutor {
+) : UiEvent(), ActivityExecutor {
     override fun invoke(activity: AppCompatActivity) {
         (activity as? IActivityExtension)?.getContent(type, callback)
     }
 }
 
-class AddHomeIconEvent : ViewEvent(), ContextExecutor {
+class AddHomeIconEvent : UiEvent(), ContextExecutor {
     override fun invoke(context: Context) {
-        Shortcuts.addHomeIcon(context)
+        AppShortcuts.addHomeIcon(context)
     }
 }
 
 class SnackbarEvent(
     private val msg: TextHolder,
     private val duration: SnackbarDuration = SnackbarDuration.Short,
-) : ViewEvent(), ActivityExecutor {
+) : UiEvent(), ActivityExecutor {
 
     constructor(
         @StringRes res: Int,
@@ -94,12 +94,12 @@ class SnackbarEvent(
 
 class DialogEvent(
     private val builder: DialogBuilder
-) : ViewEvent(), ActivityExecutor {
+) : UiEvent(), ActivityExecutor {
     override fun invoke(activity: AppCompatActivity) {
-        MagiskDialog(activity).apply(builder::build).show()
+        WeaveDialog(activity).apply(builder::build).show()
     }
 }
 
 interface DialogBuilder {
-    fun build(dialog: MagiskDialog)
+    fun build(dialog: WeaveDialog)
 }

@@ -11,7 +11,7 @@ import io.github.seyud.weave.core.Info
 import io.github.seyud.weave.core.model.UpdateInfo
 import io.github.seyud.weave.core.model.module.OnlineModule
 import io.github.seyud.weave.core.utils.MediaStoreUtils
-import io.github.seyud.weave.view.Notifications
+import io.github.seyud.weave.core.integration.AppNotifications
 import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 import java.io.File
@@ -39,7 +39,7 @@ abstract class Subject : Parcelable {
     @Parcelize
     class App(
         private val json: UpdateInfo = Info.update,
-        override val notifyId: Int = Notifications.nextId()
+        override val notifyId: Int = AppNotifications.nextId()
     ) : Subject() {
         override val title: String get() = "WeaveMask-${json.version}(${json.versionCode})"
         override val url: String get() = json.link
@@ -68,7 +68,7 @@ abstract class Subject : Parcelable {
 
     @Parcelize
     class Test(
-        override val notifyId: Int = Notifications.nextId(),
+        override val notifyId: Int = AppNotifications.nextId(),
         override val title: String = UUID.randomUUID().toString().substring(0, 6)
     ) : Subject() {
         override val url get() = "https://link.testfile.org/250MB"

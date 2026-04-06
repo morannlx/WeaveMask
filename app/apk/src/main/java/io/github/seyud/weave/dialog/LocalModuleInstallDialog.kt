@@ -17,7 +17,7 @@ import io.github.seyud.weave.core.R as CoreR
 
 /**
  * 本地模块安装确认对话框
- * 使用 Miuix SuperDialog 实现，替代旧的 View-based MagiskDialog
+ * 使用 Miuix Compose 对话框呈现安装确认内容
  */
 object LocalModuleInstallDialog {
 

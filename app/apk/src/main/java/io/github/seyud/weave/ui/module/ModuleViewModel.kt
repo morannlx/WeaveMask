@@ -47,7 +47,7 @@ data class ModuleUiState(
 
 /**
  * 模块页 ViewModel
- * 使用纯 Compose 状态管理，移除 DataBinding
+ * 使用纯 Compose 状态管理驱动模块页状态
  */
 class ModuleViewModel : AsyncLoadViewModel() {
 

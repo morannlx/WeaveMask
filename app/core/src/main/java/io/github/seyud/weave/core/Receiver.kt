@@ -8,8 +8,8 @@ import io.github.seyud.weave.core.base.BaseReceiver
 import io.github.seyud.weave.core.di.ServiceLocator
 import io.github.seyud.weave.core.download.DownloadEngine
 import io.github.seyud.weave.core.download.Subject
-import io.github.seyud.weave.view.Notifications
-import io.github.seyud.weave.view.Shortcuts
+import io.github.seyud.weave.core.integration.AppNotifications
+import io.github.seyud.weave.core.integration.AppShortcuts
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -57,12 +57,12 @@ open class Receiver : BaseReceiver() {
             Intent.ACTION_PACKAGE_FULLY_REMOVED -> {
                 getPkg(intent)?.let { Shell.cmd("magisk --denylist rm $it").submit() }
             }
-            Intent.ACTION_LOCALE_CHANGED -> Shortcuts.setupDynamic(context)
+            Intent.ACTION_LOCALE_CHANGED -> AppShortcuts.setupDynamic(context)
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 @Suppress("DEPRECATION")
                 val installer = context.packageManager.getInstallerPackageName(context.packageName)
                 if (installer == context.packageName) {
-                    Notifications.updateDone()
+                    AppNotifications.updateDone()
                 }
             }
         }

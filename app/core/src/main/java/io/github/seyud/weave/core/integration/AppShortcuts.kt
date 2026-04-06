@@ -1,4 +1,4 @@
-package io.github.seyud.weave.view
+package io.github.seyud.weave.core.integration
 
 import android.content.Context
 import android.content.Intent
@@ -17,7 +17,7 @@ import io.github.seyud.weave.core.R
 import io.github.seyud.weave.core.isRunningAsStub
 import io.github.seyud.weave.core.ktx.getBitmap
 
-object Shortcuts {
+object AppShortcuts {
 
     fun setupDynamic(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {

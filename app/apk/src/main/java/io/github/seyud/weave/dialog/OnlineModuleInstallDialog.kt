@@ -26,7 +26,7 @@ import io.github.seyud.weave.core.download.Subject
 import io.github.seyud.weave.core.model.module.OnlineModule
 import io.github.seyud.weave.ui.component.MarkdownText
 import io.github.seyud.weave.ui.flash.FlashRequest
-import io.github.seyud.weave.view.Notifications
+import io.github.seyud.weave.core.integration.AppNotifications
 import kotlinx.parcelize.Parcelize
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -37,7 +37,7 @@ import io.github.seyud.weave.core.R as CoreR
 
 /**
  * 在线模块安装/更新对话框
- * 使用 Miuix SuperDialog 实现，替代旧的 View-based MagiskDialog
+ * 使用 Miuix Compose 对话框呈现更新日志和操作按钮
  */
 object OnlineModuleInstallDialog {
 
@@ -65,7 +65,7 @@ object OnlineModuleInstallDialog {
     class Module(
         override val module: OnlineModule,
         override val autoLaunch: Boolean,
-        override val notifyId: Int = Notifications.nextId()
+        override val notifyId: Int = AppNotifications.nextId()
     ) : Subject.Module() {
         override fun pendingIntent(context: Context) = FlashRequest.install(file).toPendingIntent(context)
     }

@@ -17,8 +17,8 @@ import io.github.seyud.weave.events.SnackbarEvent
 
 abstract class BaseViewModel : ViewModel() {
 
-    private val _viewEvents = MutableLiveData<ViewEvent>()
-    val viewEvents: LiveData<ViewEvent> get() = _viewEvents
+    private val _uiEvents = MutableLiveData<UiEvent>()
+    val uiEvents: LiveData<UiEvent> get() = _uiEvents
 
     open fun onSaveState(state: Bundle) {}
     open fun onRestoreState(state: Bundle) {}
@@ -62,8 +62,8 @@ abstract class BaseViewModel : ViewModel() {
 
     fun back() = BackPressEvent().publish()
 
-    fun ViewEvent.publish() {
-        _viewEvents.postValue(this)
+    fun UiEvent.publish() {
+        _uiEvents.postValue(this)
     }
 
     fun DialogBuilder.show() {

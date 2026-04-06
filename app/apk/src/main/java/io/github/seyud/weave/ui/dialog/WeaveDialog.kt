@@ -1,4 +1,4 @@
-package io.github.seyud.weave.view
+package io.github.seyud.weave.ui.dialog
 
 import android.app.Activity
 import android.content.DialogInterface
@@ -35,17 +35,17 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 typealias DialogButtonClickListener = (DialogInterface) -> Unit
 
-interface MagiskDialogHost {
-    fun showMagiskDialog(dialog: MagiskDialog)
-    fun dismissMagiskDialog(dialog: MagiskDialog)
+interface WeaveDialogHost {
+    fun showWeaveDialog(dialog: WeaveDialog)
+    fun dismissWeaveDialog(dialog: WeaveDialog)
 }
 
-class MagiskDialog(
+class WeaveDialog(
     private val activity: Activity,
     @Suppress("UNUSED_PARAMETER") theme: Int = 0,
 ) : DialogInterface {
 
-    private val host = activity as? MagiskDialogHost
+    private val host = activity as? WeaveDialogHost
 
     private var iconDrawable: Drawable? = null
     private var title: CharSequence = ""
@@ -95,7 +95,7 @@ class MagiskDialog(
         }
 
         fun invoke() {
-            listener(this@MagiskDialog)
+            listener(this@WeaveDialog)
             if (!doNotDismiss) {
                 dismiss()
             }
@@ -154,8 +154,8 @@ class MagiskDialog(
     }
 
     fun show() {
-        checkNotNull(host) { "MagiskDialog host is only available in activities implementing MagiskDialogHost" }
-        host.showMagiskDialog(this)
+        checkNotNull(host) { "WeaveDialog host is only available in activities implementing WeaveDialogHost" }
+        host.showWeaveDialog(this)
     }
 
     override fun cancel() {
@@ -163,7 +163,7 @@ class MagiskDialog(
     }
 
     override fun dismiss() {
-        host?.dismissMagiskDialog(this)
+        host?.dismissWeaveDialog(this)
     }
 
     @Composable
@@ -280,8 +280,8 @@ class MagiskDialog(
 }
 
 @Composable
-fun MagiskDialogHostContent(
-    dialog: MagiskDialog?,
+fun WeaveDialogHostContent(
+    dialog: WeaveDialog?,
 ) {
     dialog?.Render()
 }

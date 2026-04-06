@@ -45,7 +45,7 @@ import io.github.seyud.weave.arch.BaseViewModel
 import io.github.seyud.weave.arch.ActivityExecutor
 import io.github.seyud.weave.arch.ContextExecutor
 import io.github.seyud.weave.arch.VMFactory
-import io.github.seyud.weave.arch.ViewEvent
+import io.github.seyud.weave.arch.UiEvent
 import io.github.seyud.weave.arch.ViewModelHolder
 import io.github.seyud.weave.arch.viewModel
 import io.github.seyud.weave.core.Config
@@ -55,11 +55,15 @@ import io.github.seyud.weave.core.base.ActivityExtension
 import io.github.seyud.weave.core.base.IActivityExtension
 import io.github.seyud.weave.core.base.SplashController
 import io.github.seyud.weave.core.base.SplashScreenHost
+import io.github.seyud.weave.core.integration.AppShortcuts
 import io.github.seyud.weave.core.isRunningAsStub
 import io.github.seyud.weave.core.ktx.toast
 import io.github.seyud.weave.core.tasks.AppMigration
 import io.github.seyud.weave.events.SnackbarEvent
 import io.github.seyud.weave.ui.component.MiuixConfirmDialog
+import io.github.seyud.weave.ui.dialog.WeaveDialog
+import io.github.seyud.weave.ui.dialog.WeaveDialogHost
+import io.github.seyud.weave.ui.dialog.WeaveDialogHostContent
 import io.github.seyud.weave.ui.flash.FlashRequest
 import io.github.seyud.weave.ui.flash.FlashViewModel
 import io.github.seyud.weave.ui.home.HomeViewModel
@@ -75,10 +79,6 @@ import io.github.seyud.weave.ui.theme.LocalEnableFloatingBottomBar
 import io.github.seyud.weave.ui.theme.LocalEnableFloatingBottomBarBlur
 import io.github.seyud.weave.ui.theme.Theme
 import io.github.seyud.weave.ui.theme.WeaveMagiskTheme
-import io.github.seyud.weave.view.MagiskDialog
-import io.github.seyud.weave.view.MagiskDialogHost
-import io.github.seyud.weave.view.MagiskDialogHostContent
-import io.github.seyud.weave.view.Shortcuts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -102,7 +102,7 @@ class MainViewModel : BaseViewModel()
  * 实现 IActivityExtension 接口以支持权限请求等功能
  */
 class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, ViewModelHolder,
-    MagiskDialogHost {
+    WeaveDialogHost {
 
     companion object {
         const val EXTRA_START_MAIN_TAB = "start_main_tab"
@@ -142,7 +142,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     private val settingsViewModel: SettingsViewModel by viewModels { VMFactory }
 
     private var showAddShortcutDialog by mutableStateOf(false)
-    private val magiskDialogs = mutableStateListOf<MagiskDialog>()
+    private val activeDialogs = mutableStateListOf<WeaveDialog>()
 
     /** Intent 状态流，用于触发 LaunchedEffect 重新执行 */
     private val intentState = MutableStateFlow(0)
@@ -300,14 +300,14 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                         onDismissRequest = { showAddShortcutDialog = false },
                         onConfirm = {
                             showAddShortcutDialog = false
-                            Shortcuts.addHomeIcon(this@MainActivity)
+                            AppShortcuts.addHomeIcon(this@MainActivity)
                         },
                     )
                 }
 
                 WeaveMagiskTheme(colorMode = colorMode, keyColor = keyColor) {
-                    MagiskDialogHostContent(
-                        dialog = magiskDialogs.firstOrNull()
+                    WeaveDialogHostContent(
+                        dialog = activeDialogs.firstOrNull()
                     )
                 }
             }
@@ -413,14 +413,14 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
      * 开始观察 ViewModel 的 LiveData
      */
     override fun startObserveLiveData() {
-        viewModel.viewEvents.observe(this, this::onEventDispatched)
-        homeViewModel.viewEvents.observe(this, this::onEventDispatched)
-        moduleViewModel.viewEvents.observe(this, this::onEventDispatched)
-        superuserViewModel.viewEvents.observe(this, this::onEventDispatched)
-        logViewModel.viewEvents.observe(this, this::onEventDispatched)
-        installViewModel.viewEvents.observe(this, this::onEventDispatched)
-        flashViewModel.viewEvents.observe(this, this::onEventDispatched)
-        settingsViewModel.viewEvents.observe(this, this::onEventDispatched)
+        viewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        homeViewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        moduleViewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        superuserViewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        logViewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        installViewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        flashViewModel.uiEvents.observe(this, this::onUiEventDispatched)
+        settingsViewModel.uiEvents.observe(this, this::onUiEventDispatched)
         Info.isConnected.observe(this) { connected ->
             viewModel.onNetworkChanged(connected)
             moduleViewModel.onNetworkChanged(connected)
@@ -431,7 +431,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     }
 
     /**
-     * 处理 ViewEvent 事件
+     * 处理 UI 事件
      *
      * @param event 要处理的事件
      */
@@ -448,7 +448,7 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
         }
     }
 
-    override fun onEventDispatched(event: ViewEvent) {
+    override fun onUiEventDispatched(event: UiEvent) {
         when (event) {
             is SnackbarEvent -> showSnackbar(event)
             is ContextExecutor -> event(this)
@@ -457,17 +457,17 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
         }
     }
 
-    override fun showMagiskDialog(dialog: MagiskDialog) {
+    override fun showWeaveDialog(dialog: WeaveDialog) {
         runOnUiThread {
-            if (!magiskDialogs.contains(dialog)) {
-                magiskDialogs.add(dialog)
+            if (!activeDialogs.contains(dialog)) {
+                activeDialogs.add(dialog)
             }
         }
     }
 
-    override fun dismissMagiskDialog(dialog: MagiskDialog) {
+    override fun dismissWeaveDialog(dialog: WeaveDialog) {
         runOnUiThread {
-            magiskDialogs.remove(dialog)
+            activeDialogs.remove(dialog)
         }
     }
 
@@ -477,10 +477,10 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
      */
     @SuppressLint("InlinedApi")
     override fun showInvalidStateMessage(): Unit = runOnUiThread {
-        MagiskDialog(this).apply {
+        WeaveDialog(this).apply {
             setTitle(CoreR.string.unsupport_nonroot_stub_title)
             setMessage(CoreR.string.unsupport_nonroot_stub_msg)
-            setButton(MagiskDialog.ButtonType.POSITIVE) {
+            setButton(WeaveDialog.ButtonType.POSITIVE) {
                 text = CoreR.string.install
                 onClick {
                     withPermission(REQUEST_INSTALL_PACKAGES) {
@@ -509,10 +509,10 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
     private fun showUnsupportedMessage() {
         // 检查 Magisk 版本是否不支持
         if (Info.env.isUnsupported) {
-            MagiskDialog(this).apply {
+            WeaveDialog(this).apply {
                 setTitle(CoreR.string.unsupport_magisk_title)
                 setMessage(CoreR.string.unsupport_magisk_msg, Const.Version.MIN_VERSION)
-                setButton(MagiskDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
+                setButton(WeaveDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
                 setCancelable(false)
             }.show()
         }
@@ -522,30 +522,30 @@ class MainActivity : AppCompatActivity(), SplashScreenHost, IActivityExtension, 
                 ?.split(':')
                 ?.filterNot { File("$it/magisk").exists() }
                 ?.any { File("$it/su").exists() } == true) {
-            MagiskDialog(this).apply {
+            WeaveDialog(this).apply {
                 setTitle(CoreR.string.unsupport_general_title)
                 setMessage(CoreR.string.unsupport_other_su_msg)
-                setButton(MagiskDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
+                setButton(WeaveDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
                 setCancelable(false)
             }.show()
         }
 
         // 检查是否为系统应用
         if (applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0) {
-            MagiskDialog(this).apply {
+            WeaveDialog(this).apply {
                 setTitle(CoreR.string.unsupport_general_title)
                 setMessage(CoreR.string.unsupport_system_app_msg)
-                setButton(MagiskDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
+                setButton(WeaveDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
                 setCancelable(false)
             }.show()
         }
 
         // 检查是否安装在外部存储
         if (applicationInfo.flags and ApplicationInfo.FLAG_EXTERNAL_STORAGE != 0) {
-            MagiskDialog(this).apply {
+            WeaveDialog(this).apply {
                 setTitle(CoreR.string.unsupport_general_title)
                 setMessage(CoreR.string.unsupport_external_storage_msg)
-                setButton(MagiskDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
+                setButton(WeaveDialog.ButtonType.POSITIVE) { text = android.R.string.ok }
                 setCancelable(false)
             }.show()
         }

@@ -64,7 +64,7 @@ class SuRequestViewModel(
 
     /**
      * 弹窗状态流
-     * 使用 StateFlow 替代 DataBinding 实现状态驱动
+     * 使用 StateFlow 驱动授权弹窗状态
      */
     private val _dialogState = MutableStateFlow(SuRequestDialog.DialogState())
     val dialogState: StateFlow<SuRequestDialog.DialogState> = _dialogState.asStateFlow()

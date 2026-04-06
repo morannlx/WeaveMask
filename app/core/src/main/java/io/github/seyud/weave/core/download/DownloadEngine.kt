@@ -25,7 +25,7 @@ import io.github.seyud.weave.core.di.ServiceLocator
 import io.github.seyud.weave.core.intent
 import io.github.seyud.weave.core.ktx.set
 import io.github.seyud.weave.core.utils.ProgressInputStream
-import io.github.seyud.weave.view.Notifications
+import io.github.seyud.weave.core.integration.AppNotifications
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -178,8 +178,8 @@ class DownloadEngine(session: DownloadSession) : DownloadSession by session, Dow
 
     private fun finalNotify(id: Int, editor: (Notification.Builder) -> Unit): Int {
         val notification = notifyRemove(id)?.also(editor) ?: return -1
-        val newId = Notifications.nextId()
-        Notifications.mgr.notify(newId, notification.build())
+        val newId = AppNotifications.nextId()
+        AppNotifications.mgr.notify(newId, notification.build())
         return newId
     }
 
@@ -203,14 +203,14 @@ class DownloadEngine(session: DownloadSession) : DownloadSession by session, Dow
 
     @Synchronized
     override fun notifyUpdate(id: Int, editor: (Notification.Builder) -> Unit) {
-        val notification = (notifications[id] ?: Notifications.startProgress("").also {
+        val notification = (notifications[id] ?: AppNotifications.startProgress("").also {
             notifications[id] = it
         }).apply(editor)
 
         if (attachedId < 0)
             attach(id, notification)
         else
-            Notifications.mgr.notify(id, notification.build())
+            AppNotifications.mgr.notify(id, notification.build())
     }
 
     @Synchronized
@@ -237,7 +237,7 @@ class DownloadEngine(session: DownloadSession) : DownloadSession by session, Dow
             }
         }
 
-        Notifications.mgr.cancel(id)
+        AppNotifications.mgr.cancel(id)
         return n
     }
 

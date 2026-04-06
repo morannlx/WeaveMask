@@ -17,14 +17,14 @@ interface ViewModelHolder : LifecycleOwner, ViewModelStoreOwner {
     val viewModel: BaseViewModel
 
     fun startObserveLiveData() {
-        viewModel.viewEvents.observe(this, this::onEventDispatched)
+        viewModel.uiEvents.observe(this, this::onUiEventDispatched)
         Info.isConnected.observe(this, viewModel::onNetworkChanged)
     }
 
     /**
-     * Called for all [ViewEvent]s published by associated viewModel.
+     * Called for all [UiEvent]s published by the associated viewModel.
      */
-    fun onEventDispatched(event: ViewEvent) {}
+    fun onUiEventDispatched(event: UiEvent) {}
 }
 
 object VMFactory : ViewModelProvider.Factory {

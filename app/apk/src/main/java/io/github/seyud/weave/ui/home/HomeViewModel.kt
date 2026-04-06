@@ -13,7 +13,7 @@ import androidx.core.net.toUri
 import io.github.seyud.weave.arch.ActivityExecutor
 import io.github.seyud.weave.arch.AsyncLoadViewModel
 import io.github.seyud.weave.arch.ContextExecutor
-import io.github.seyud.weave.arch.ViewEvent
+import io.github.seyud.weave.arch.UiEvent
 import io.github.seyud.weave.core.AppContext
 import io.github.seyud.weave.core.BuildConfig
 import io.github.seyud.weave.core.Config
@@ -157,7 +157,7 @@ class HomeViewModel(
             stateManagerProgress = progress.times(100f).roundToInt()
     }
 
-    fun onLinkPressed(link: String) = object : ViewEvent(), ContextExecutor {
+    fun onLinkPressed(link: String) = object : UiEvent(), ContextExecutor {
         override fun invoke(context: Context) {
             val intent = Intent(Intent.ACTION_VIEW, link.toUri())
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -274,7 +274,7 @@ class HomeViewModel(
     }
 
     val showTest = false
-    fun onTestPressed() = object : ViewEvent(), ActivityExecutor {
+    fun onTestPressed() = object : UiEvent(), ActivityExecutor {
         override fun invoke(activity: AppCompatActivity) {
             /* Entry point to trigger test events within the app */
         }

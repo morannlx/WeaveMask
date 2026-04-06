@@ -19,8 +19,8 @@ import io.github.seyud.weave.core.isRunningAsStub
 import io.github.seyud.weave.core.ktx.writeTo
 import io.github.seyud.weave.core.tasks.AppMigration
 import io.github.seyud.weave.core.utils.RootUtils
-import io.github.seyud.weave.view.Notifications
-import io.github.seyud.weave.view.Shortcuts
+import io.github.seyud.weave.core.integration.AppNotifications
+import io.github.seyud.weave.core.integration.AppShortcuts
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -153,9 +153,9 @@ class SplashController<T>(private val activity: T)
             return
         }
 
-        Notifications.setup()
+        AppNotifications.setup()
         JobService.schedule(this)
-        Shortcuts.setupDynamic(this)
+        AppShortcuts.setupDynamic(this)
 
         // Pre-fetch network services
         ServiceLocator.networkService

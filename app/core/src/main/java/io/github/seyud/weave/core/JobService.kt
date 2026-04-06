@@ -13,7 +13,7 @@ import io.github.seyud.weave.core.di.ServiceLocator
 import io.github.seyud.weave.core.download.DownloadEngine
 import io.github.seyud.weave.core.download.DownloadSession
 import io.github.seyud.weave.core.download.Subject
-import io.github.seyud.weave.view.Notifications
+import io.github.seyud.weave.core.integration.AppNotifications
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -76,7 +76,7 @@ class JobService : BaseJobService() {
         AppContext.appScope.launch(Dispatchers.IO) {
             Info.fetchUpdate(ServiceLocator.networkService)?.let {
                 if (Info.env.isActive && BuildConfig.APP_VERSION_CODE < it.versionCode)
-                    Notifications.updateAvailable()
+                    AppNotifications.updateAvailable()
                 jobFinished(params, false)
             }
         }

@@ -1,4 +1,4 @@
-package io.github.seyud.weave.view
+package io.github.seyud.weave.core.integration
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -18,7 +18,7 @@ import io.github.seyud.weave.core.ktx.selfLaunchIntent
 import java.util.concurrent.atomic.AtomicInteger
 
 @Suppress("DEPRECATION")
-object Notifications {
+object AppNotifications {
 
     val mgr by lazy { AppContext.getSystemService<NotificationManager>()!! }
 
