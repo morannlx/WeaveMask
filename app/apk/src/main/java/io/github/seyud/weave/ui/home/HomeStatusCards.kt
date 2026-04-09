@@ -131,10 +131,9 @@ internal fun MagiskCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
-                    painter = painterResource(id = CoreR.drawable.ic_magisk_outline),
+                    painter = painterResource(id = CoreR.drawable.ic_weave_card),
                     contentDescription = null,
-                    colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.primary),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(56.dp)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
