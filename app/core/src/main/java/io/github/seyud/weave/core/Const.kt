@@ -44,6 +44,7 @@ object Const {
 
         const val GITHUB_API_URL = "https://api.github.com/"
         const val GITHUB_PAGE_URL = "https://topjohnwu.github.io/magisk-files/"
+        const val KERNELSU_MODULE_REPO_URL = "https://modules.kernelsu.org"
         const val INVALID_URL = "https://example.com/"
     }
 

@@ -98,6 +98,9 @@ import io.github.seyud.weave.ui.install.InstallScreen
 import io.github.seyud.weave.ui.install.InstallViewModel
 import io.github.seyud.weave.ui.log.LogScreen
 import io.github.seyud.weave.ui.log.LogViewModel
+import io.github.seyud.weave.ui.modulerepo.ModuleRepoDetailScreen
+import io.github.seyud.weave.ui.modulerepo.ModuleRepoScreen
+import io.github.seyud.weave.ui.modulerepo.ModuleRepoViewModel
 import io.github.seyud.weave.ui.module.ActionScreen
 import io.github.seyud.weave.ui.module.ModuleInstallTarget
 import io.github.seyud.weave.ui.module.ModuleShortcutContract
@@ -209,6 +212,7 @@ fun MainScreen(
     homeViewModel: HomeViewModel,
     flashViewModel: FlashViewModel,
     moduleViewModel: ModuleViewModel,
+    moduleRepoViewModel: ModuleRepoViewModel,
     superuserViewModel: SuperuserViewModel,
     logViewModel: LogViewModel,
     installViewModel: InstallViewModel,
@@ -350,6 +354,21 @@ fun MainScreen(
                         entry<Route.Log> {
                             LogScreen(
                                 viewModel = logViewModel,
+                                onNavigateBack = { navigator.pop() }
+                            )
+                        }
+                        entry<Route.ModuleRepoList> {
+                            ModuleRepoScreen(
+                                viewModel = moduleRepoViewModel,
+                                onNavigateBack = { navigator.pop() },
+                                onOpenModuleDetail = { moduleId ->
+                                    navigator.push(Route.ModuleRepoDetail(moduleId))
+                                }
+                            )
+                        }
+                        entry<Route.ModuleRepoDetail> { key ->
+                            ModuleRepoDetailScreen(
+                                moduleId = key.moduleId,
                                 onNavigateBack = { navigator.pop() }
                             )
                         }
@@ -653,6 +672,9 @@ private fun MainTabScreen(
                             if (uris.isNotEmpty()) {
                                 navigator.push(Route.Flash(Const.Value.FLASH_ZIP, uris.map(Uri::toString)))
                             }
+                        },
+                        onOpenRepo = {
+                            navigator.push(Route.ModuleRepoList)
                         },
                         onRunAction = { id, name ->
                             navigator.push(Route.Action(id, name))

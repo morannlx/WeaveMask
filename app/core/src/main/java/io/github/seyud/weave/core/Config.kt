@@ -9,6 +9,7 @@ import io.github.seyud.weave.core.utils.LocaleSetting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 object Config : PreferenceConfig, DBConfig {
 
@@ -40,6 +41,8 @@ object Config : PreferenceConfig, DBConfig {
         const val CHECK_UPDATES = "check_update"
         const val RELEASE_CHANNEL = "release_channel"
         const val CUSTOM_CHANNEL = "custom_channel"
+        const val MODULE_REPO_BASE_URL = "module_repo_base_url"
+        const val MODULE_REPO_SORT_BY_NAME = "module_repo_sort_by_name"
         const val LOCALE = "locale"
         const val DARK_THEME = "dark_theme_extended"
         const val DOWNLOAD_DIR = "download_dir"
@@ -151,6 +154,8 @@ object Config : PreferenceConfig, DBConfig {
     var doh by preference(Key.DOH, false)
     var updateChannel by preference(Key.RELEASE_CHANNEL, Value.DEFAULT_CHANNEL)
     var customChannelUrl by preference(Key.CUSTOM_CHANNEL, "")
+    private var moduleRepoBaseUrlPrefs by preference(Key.MODULE_REPO_BASE_URL, Const.Url.KERNELSU_MODULE_REPO_URL)
+    var moduleRepoSortByName by preference(Key.MODULE_REPO_SORT_BY_NAME, false)
     var downloadDir by preference(Key.DOWNLOAD_DIR, "")
     var randName by preference(Key.RAND_NAME, true)
     var checkUpdate
@@ -166,6 +171,11 @@ object Config : PreferenceConfig, DBConfig {
         set(value) {
             localePrefs = value
             LocaleSetting.instance.setLocale(value)
+        }
+    var moduleRepoBaseUrl
+        get() = normalizeModuleRepoBaseUrl(moduleRepoBaseUrlPrefs) ?: Const.Url.KERNELSU_MODULE_REPO_URL
+        set(value) {
+            moduleRepoBaseUrlPrefs = normalizeModuleRepoBaseUrl(value) ?: Const.Url.KERNELSU_MODULE_REPO_URL
         }
 
     var zygisk by dbSettings(Key.ZYGISK, Info.isEmulator)
@@ -248,5 +258,21 @@ object Config : PreferenceConfig, DBConfig {
             }
             remove(UPDATE_CHANNEL)
         }
+    }
+
+    fun normalizeModuleRepoBaseUrl(value: String): String? {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty()) {
+            return null
+        }
+        val normalized = trimmed.toHttpUrlOrNull() ?: return null
+        if (normalized.scheme != "http" && normalized.scheme != "https") {
+            return null
+        }
+        return normalized.newBuilder().apply {
+            encodedPath("/")
+            query(null)
+            fragment(null)
+        }.build().toString().removeSuffix("/")
     }
 }

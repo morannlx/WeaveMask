@@ -36,6 +36,7 @@ fun ModuleScreen(
     viewModel: ModuleViewModel,
     contentBottomPadding: Dp,
     onInstallModuleFromLocal: (List<Uri>) -> Unit,
+    onOpenRepo: () -> Unit,
     onRunAction: (String, String) -> Unit,
     onOpenWebUi: (String, String) -> Unit,
     modifier: Modifier = Modifier,
@@ -156,6 +157,7 @@ fun ModuleScreen(
                     scrollBehavior = scrollBehavior,
                     showTopPopup = localState.showTopPopup,
                     onShowTopPopupChange = { localState.showTopPopup = it },
+                    onOpenRepo = onOpenRepo,
                     onToggleSortEnabledFirst = {
                         viewModel.setSortEnabledFirst(!uiState.sortEnabledFirst)
                     },

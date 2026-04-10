@@ -31,6 +31,18 @@ sealed interface Route : NavKey, Parcelable {
     @Serializable
     data object Log : Route
 
+    /** 模块仓库列表页面 */
+    @Parcelize
+    @Serializable
+    data object ModuleRepoList : Route
+
+    /** 模块仓库详情页面 */
+    @Parcelize
+    @Serializable
+    data class ModuleRepoDetail(
+        val moduleId: String,
+    ) : Route
+
     /** 应用语言设置 */
     @Parcelize
     @Serializable

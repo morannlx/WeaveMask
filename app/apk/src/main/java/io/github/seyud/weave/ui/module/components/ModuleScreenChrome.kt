@@ -2,6 +2,8 @@ package io.github.seyud.weave.ui.module.components
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +70,7 @@ internal fun ModuleScreenTopBar(
     scrollBehavior: ScrollBehavior,
     showTopPopup: Boolean,
     onShowTopPopupChange: (Boolean) -> Unit,
+    onOpenRepo: () -> Unit,
     onToggleSortEnabledFirst: () -> Unit,
     onToggleSortUpdateFirst: () -> Unit,
     onToggleSortExecutableFirst: () -> Unit,
@@ -82,6 +85,16 @@ internal fun ModuleScreenTopBar(
             title = context.getString(CoreR.string.modules),
             titleColor = MiuixTheme.colorScheme.onBackground,
             largeTitleColor = MiuixTheme.colorScheme.onBackground,
+            navigationIcon = {
+                IconButton(
+                    onClick = onOpenRepo,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Storefront,
+                        contentDescription = stringResource(CoreR.string.module_repo_open),
+                    )
+                }
+            },
             scrollBehavior = scrollBehavior,
             actions = {
                 ModuleTopBarActions(

@@ -154,6 +154,10 @@ fun SettingsScreen(
     var customChannelUrl by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(Config.customChannelUrl))
     }
+    var showModuleRepoDialog by rememberSaveable { mutableStateOf(false) }
+    var moduleRepoBaseUrlInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(Config.moduleRepoBaseUrl))
+    }
     var showDownloadPathDialog by rememberSaveable { mutableStateOf(false) }
     var downloadPathInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(Config.downloadDir))
@@ -583,6 +587,23 @@ fun SettingsScreen(
                         }
                     )
 
+                    ArrowPreference(
+                        title = stringResource(CoreR.string.module_repo_source_title),
+                        summary = Config.moduleRepoBaseUrl,
+                        startAction = {
+                            Icon(
+                                Icons.Rounded.Link,
+                                modifier = Modifier.padding(end = 6.dp),
+                                contentDescription = null,
+                                tint = colorScheme.onBackground
+                            )
+                        },
+                        onClick = {
+                            moduleRepoBaseUrlInput = TextFieldValue(Config.moduleRepoBaseUrl)
+                            showModuleRepoDialog = true
+                        }
+                    )
+
                     // 下载路径
                     ArrowPreference(
                         title = stringResource(CoreR.string.settings_download_path_title),
@@ -959,6 +980,24 @@ fun SettingsScreen(
             showCustomChannelDialog = false
         },
         confirmEnabled = true,
+    )
+
+    io.github.seyud.weave.ui.component.MiuixTextInputDialog(
+        show = showModuleRepoDialog,
+        title = stringResource(CoreR.string.module_repo_source_title),
+        value = moduleRepoBaseUrlInput,
+        onValueChange = { moduleRepoBaseUrlInput = it },
+        label = stringResource(CoreR.string.module_repo_source_message),
+        helperText = Config.normalizeModuleRepoBaseUrl(moduleRepoBaseUrlInput.text)
+            ?: context.getString(CoreR.string.module_repo_source_invalid),
+        confirmText = stringResource(android.R.string.ok),
+        dismissText = stringResource(android.R.string.cancel),
+        onDismissRequest = { showModuleRepoDialog = false },
+        onConfirm = {
+            Config.moduleRepoBaseUrl = moduleRepoBaseUrlInput.text
+            showModuleRepoDialog = false
+        },
+        confirmEnabled = Config.normalizeModuleRepoBaseUrl(moduleRepoBaseUrlInput.text) != null,
     )
 
     io.github.seyud.weave.ui.component.MiuixTextInputDialog(

@@ -73,6 +73,7 @@ import io.github.seyud.weave.ui.flash.FlashViewModel
 import io.github.seyud.weave.ui.home.HomeViewModel
 import io.github.seyud.weave.ui.install.InstallViewModel
 import io.github.seyud.weave.ui.log.LogViewModel
+import io.github.seyud.weave.ui.modulerepo.ModuleRepoViewModel
 import io.github.seyud.weave.ui.module.ModuleInstallTarget
 import io.github.seyud.weave.ui.module.ModuleViewModel
 import io.github.seyud.weave.ui.module.state.copyModuleDocumentsToCache
@@ -132,6 +133,9 @@ class MainActivity : AppCompatActivity(), IActivityExtension, ViewModelHolder, W
 
     /** 模块 ViewModel */
     private val moduleViewModel: ModuleViewModel by viewModels { VMFactory }
+
+    /** 模块仓库 ViewModel */
+    private val moduleRepoViewModel: ModuleRepoViewModel by viewModels { VMFactory }
 
     /** 超级用户 ViewModel */
     private val superuserViewModel: SuperuserViewModel by viewModels { VMFactory }
@@ -274,6 +278,7 @@ class MainActivity : AppCompatActivity(), IActivityExtension, ViewModelHolder, W
                             homeViewModel = homeViewModel,
                             flashViewModel = flashViewModel,
                             moduleViewModel = moduleViewModel,
+                            moduleRepoViewModel = moduleRepoViewModel,
                             superuserViewModel = superuserViewModel,
                             logViewModel = logViewModel,
                             installViewModel = installViewModel,
