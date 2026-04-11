@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
@@ -18,7 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Adb
@@ -43,6 +45,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.QuestionAnswer
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.RoundedCorner
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
@@ -189,18 +192,18 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .attachBarBlurBackdrop(blurBackdrop),
         ) {
-            LazyColumn(
+            val scrollState = rememberScrollState()
+            Column(
                 modifier = Modifier
                     .fillMaxHeight()
                     .scrollEndHaptic()
                     .overScrollVertical()
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .padding(horizontal = 12.dp),
-                contentPadding = innerPadding,
-                overscrollEffect = null
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 12.dp)
+                    .padding(innerPadding)
             ) {
             // ==================== 日志入口 ====================
-            item {
                 Card(
                     modifier = Modifier
                         .padding(top = 12.dp)
@@ -219,10 +222,8 @@ fun SettingsScreen(
                         onClick = { viewModel.onNavigateToLog?.invoke() }
                     )
                 }
-            }
 
             // ==================== 自定义 ====================
-            item {
                 SmallTitle(text = stringResource(CoreR.string.settings_customization))
                 Card(
                     modifier = Modifier.fillMaxWidth()
@@ -260,29 +261,6 @@ fun SettingsScreen(
                         onSelectedIndexChange = { index ->
                             Config.colorMode = index
                             themeMode = index
-                        }
-                    )
-
-                    val homeLayoutItems = listOf(
-                        stringResource(CoreR.string.settings_home_layout_classic),
-                        stringResource(CoreR.string.settings_home_layout_weavsk)
-                    )
-                    OverlayDropdownPreference(
-                        title = stringResource(CoreR.string.settings_home_layout),
-                        summary = stringResource(CoreR.string.settings_home_layout_summary),
-                        items = homeLayoutItems,
-                        startAction = {
-                            Icon(
-                                Icons.Rounded.Home,
-                                modifier = Modifier.padding(end = 6.dp),
-                                contentDescription = null,
-                                tint = colorScheme.onBackground
-                            )
-                        },
-                        selectedIndex = homeLayoutMode.coerceIn(0, homeLayoutItems.lastIndex),
-                        onSelectedIndexChange = { index ->
-                            Config.homeLayoutMode = index
-                            homeLayoutMode = Config.homeLayoutMode
                         }
                     )
 
@@ -348,6 +326,29 @@ fun SettingsScreen(
                             }
                         )
                     }
+
+                    val homeLayoutItems = listOf(
+                        stringResource(CoreR.string.settings_home_layout_classic),
+                        stringResource(CoreR.string.settings_home_layout_weavsk)
+                    )
+                    OverlayDropdownPreference(
+                        title = stringResource(CoreR.string.settings_home_layout),
+                        summary = stringResource(CoreR.string.settings_home_layout_summary),
+                        items = homeLayoutItems,
+                        startAction = {
+                            Icon(
+                                Icons.Rounded.Home,
+                                modifier = Modifier.padding(end = 6.dp),
+                                contentDescription = null,
+                                tint = colorScheme.onBackground
+                            )
+                        },
+                        selectedIndex = homeLayoutMode.coerceIn(0, homeLayoutItems.lastIndex),
+                        onSelectedIndexChange = { index ->
+                            Config.homeLayoutMode = index
+                            homeLayoutMode = Config.homeLayoutMode
+                        }
+                    )
 
                     // 模糊
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -419,7 +420,7 @@ fun SettingsScreen(
                         summary = stringResource(CoreR.string.settings_smooth_corner_summary),
                         startAction = {
                             Icon(
-                                Icons.Rounded.AspectRatio,
+                                Icons.Rounded.RoundedCorner,
                                 modifier = Modifier.padding(end = 6.dp),
                                 contentDescription = stringResource(CoreR.string.settings_smooth_corner),
                                 tint = colorScheme.onBackground
@@ -533,10 +534,8 @@ fun SettingsScreen(
                         )
                     }
                 }
-            }
 
             // ==================== 应用设置 ====================
-            item {
                 SmallTitle(text = stringResource(CoreR.string.home_app_title))
                 Card(
                     modifier = Modifier.fillMaxWidth()
@@ -707,11 +706,9 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
 
             // ==================== Magisk ====================
             if (showMagiskSection) {
-                item {
                     SmallTitle(text = stringResource(CoreR.string.magisk))
                     Card(
                         modifier = Modifier.fillMaxWidth()
@@ -795,11 +792,9 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
 
             // ==================== 超级用户 ====================
             if (showSuperuserSection) {
-                item {
                     SmallTitle(text = stringResource(CoreR.string.superuser))
                     Card(
                         modifier = Modifier.fillMaxWidth()
@@ -920,12 +915,9 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
 
             // 底部留白
-            item {
                 Spacer(Modifier.height(contentBottomPadding))
-            }
             }
         }
     }
