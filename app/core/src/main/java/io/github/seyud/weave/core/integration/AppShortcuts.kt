@@ -19,6 +19,14 @@ import io.github.seyud.weave.core.ktx.getBitmap
 
 object AppShortcuts {
 
+    private fun createLaunchIntent(context: Context): Intent? {
+        return if (AppIconManager.isSupported(context)) {
+            AppIconManager.createMainActivityIntent(context)
+        } else {
+            context.packageManager.getLaunchIntentForPackage(context.packageName)
+        }
+    }
+
     fun setupDynamic(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             val manager = context.getSystemService<ShortcutManager>() ?: return
@@ -27,11 +35,11 @@ object AppShortcuts {
     }
 
     fun addHomeIcon(context: Context) {
-        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+        val intent = createLaunchIntent(context) ?: return
         val info = ShortcutInfoCompat.Builder(context, Const.Nav.HOME)
             .setShortLabel(context.getString(R.string.magisk))
             .setIntent(intent)
-            .setIcon(context.getIconCompat(R.drawable.ic_launcher))
+            .setIcon(context.getIconCompat(AppIconManager.currentShortcutIconResId(context)))
             .build()
         ShortcutManagerCompat.requestPinShortcut(context, info, null)
     }
@@ -61,8 +69,7 @@ object AppShortcuts {
 
     @RequiresApi(api = 25)
     private fun getShortCuts(context: Context): List<ShortcutInfo> {
-        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: return emptyList()
+        val intent = createLaunchIntent(context) ?: return emptyList()
 
         val shortCuts = mutableListOf<ShortcutInfo>()
 

@@ -138,7 +138,12 @@ class AppMigrationTest {
     }
 
     private fun assertInstalledAppMappingShape() {
-        assertDistinctActivityGroups(installedPackageInfo(APP_PKG), "Installed app")
+        val launcherIntent = context.packageManager.getLaunchIntentForPackage(APP_PKG)
+            ?: throw AssertionError("Cannot resolve launcher intent for $APP_PKG")
+        assertTrue(
+            "Installed app launcher should target the main package",
+            launcherIntent.component?.packageName == APP_PKG
+        )
     }
 
     private fun shell(command: String): String {

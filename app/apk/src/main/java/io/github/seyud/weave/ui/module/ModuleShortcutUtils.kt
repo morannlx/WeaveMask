@@ -10,6 +10,7 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.scale
+import io.github.seyud.weave.core.integration.AppIconManager
 import io.github.seyud.weave.core.ktx.toast
 import io.github.seyud.weave.core.utils.RootUtils
 import io.github.seyud.weave.ui.MainActivity
@@ -213,7 +214,7 @@ private fun createShortcutIcon(
 }
 
 private fun defaultShortcutIcon(context: Context): IconCompat {
-    return IconCompat.createWithResource(context, CoreR.drawable.ic_launcher)
+    return IconCompat.createWithResource(context, AppIconManager.currentShortcutIconResId(context))
 }
 
 private fun normalizeShortcutBitmap(rawBitmap: Bitmap): Bitmap {

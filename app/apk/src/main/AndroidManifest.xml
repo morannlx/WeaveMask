@@ -21,10 +21,6 @@
             android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
@@ -35,6 +31,45 @@
                 <data android:mimeType="application/zip" android:scheme="content" />
             </intent-filter>
         </activity>
+
+        <activity-alias
+            android:name=".ui.MainActivityLauncherCurrent"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher"
+            android:roundIcon="@drawable/ic_launcher_round"
+            android:targetActivity=".ui.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.MainActivityLauncherLegacyWeave"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_legacy_weave_icon"
+            android:roundIcon="@drawable/ic_launcher_legacy_weave_icon"
+            android:targetActivity=".ui.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.MainActivityLauncherLegacyMask"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_legacy_mask"
+            android:roundIcon="@drawable/ic_launcher_legacy_mask"
+            android:targetActivity=".ui.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.webui.WebUIActivity"

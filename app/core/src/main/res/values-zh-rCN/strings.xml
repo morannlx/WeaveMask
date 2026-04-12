@@ -173,6 +173,11 @@
     <string name="settings_key_color">种子颜色</string>
     <string name="settings_key_color_summary">选择莫奈主题的种子颜色</string>
     <string name="settings_key_color_default">默认（壁纸取色）</string>
+    <string name="settings_app_icon_title">APP 图标</string>
+    <string name="settings_app_icon_summary">选择 WeaveMask 使用的桌面图标</string>
+    <string name="settings_app_icon_current">Monet</string>
+    <string name="settings_app_icon_legacy_weave">Weave</string>
+    <string name="settings_app_icon_legacy_mask">Mask</string>
     <string name="color_red">红色</string>
     <string name="color_pink">粉色</string>
     <string name="color_purple">紫色</string>

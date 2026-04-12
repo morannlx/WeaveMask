@@ -20,9 +20,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Adb
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.CallToAction
+import androidx.compose.material.icons.rounded.Colorize
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Palette
@@ -31,6 +33,8 @@ import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.ui.unit.dp
 import io.github.seyud.weave.core.App as CoreApp
 import io.github.seyud.weave.core.Config
+import io.github.seyud.weave.core.integration.AppIconManager
+import io.github.seyud.weave.core.integration.AppIconVariant
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Slider
@@ -45,6 +49,7 @@ import io.github.seyud.weave.core.R as CoreR
 
 @Composable
 internal fun CustomizationSettingsSection(
+    viewModel: SettingsViewModel,
     visibility: SettingsVisibility,
     onNavigateToAppLanguage: () -> Unit,
     onAddShortcut: () -> Unit,
@@ -158,8 +163,21 @@ internal fun CustomizationSettingsSection(
     }
     val homeLayoutClassic = stringResource(CoreR.string.settings_home_layout_classic)
     val homeLayoutWeavsk = stringResource(CoreR.string.settings_home_layout_weavsk)
+    val iconCurrent = stringResource(CoreR.string.settings_app_icon_current)
+    val iconLegacyWeave = stringResource(CoreR.string.settings_app_icon_legacy_weave)
+    val iconLegacyMask = stringResource(CoreR.string.settings_app_icon_legacy_mask)
     val homeLayoutItems = remember(homeLayoutClassic, homeLayoutWeavsk) {
         listOf(homeLayoutClassic, homeLayoutWeavsk)
+    }
+    val appIconVariants = remember { AppIconVariant.entries }
+    val appIconItems = remember(iconCurrent, iconLegacyWeave, iconLegacyMask) {
+        listOf(iconCurrent, iconLegacyWeave, iconLegacyMask)
+    }
+    var appIconIndex by rememberSaveable {
+        mutableIntStateOf(appIconVariants.indexOf(AppIconManager.currentVariant()).coerceAtLeast(0))
+    }
+    val supportsAppIconSelection = remember(context.packageName) {
+        AppIconManager.isSupported(context)
     }
 
     SmallTitle(text = stringResource(CoreR.string.settings_customization))
@@ -196,7 +214,7 @@ internal fun CustomizationSettingsSection(
                 items = colorItems,
                 startAction = {
                     Icon(
-                        Icons.Rounded.Palette,
+                        Icons.Rounded.Colorize,
                         modifier = Modifier.padding(end = 6.dp),
                         contentDescription = null,
                         tint = colorScheme.onBackground,
@@ -228,6 +246,29 @@ internal fun CustomizationSettingsSection(
                 homeLayoutMode = Config.homeLayoutMode
             },
         )
+
+        if (supportsAppIconSelection) {
+            OverlayDropdownPreference(
+                title = stringResource(CoreR.string.settings_app_icon_title),
+                summary = stringResource(CoreR.string.settings_app_icon_summary),
+                items = appIconItems,
+                startAction = {
+                    Icon(
+                        Icons.Rounded.Apps,
+                        modifier = Modifier.padding(end = 6.dp),
+                        contentDescription = null,
+                        tint = colorScheme.onBackground,
+                    )
+                },
+                selectedIndex = appIconIndex.coerceIn(0, appIconItems.lastIndex),
+                onSelectedIndexChange = { index ->
+                    val variant = appIconVariants[index]
+                    if (viewModel.updateAppIcon(context, variant)) {
+                        appIconIndex = index
+                    }
+                },
+            )
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SwitchPreference(

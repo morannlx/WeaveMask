@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.lifecycle.viewModelScope
 import io.github.seyud.weave.arch.BaseViewModel
 import io.github.seyud.weave.core.AppContext
+import io.github.seyud.weave.core.integration.AppIconManager
+import io.github.seyud.weave.core.integration.AppIconVariant
 import io.github.seyud.weave.core.ktx.toast
 import io.github.seyud.weave.core.tasks.AppMigration
 import io.github.seyud.weave.core.utils.RootUtils
@@ -30,6 +32,10 @@ class SettingsViewModel : BaseViewModel() {
      */
     fun addShortcut() {
         AddHomeIconEvent().publish()
+    }
+
+    fun updateAppIcon(context: Context, variant: AppIconVariant): Boolean {
+        return AppIconManager.setVariant(context, variant)
     }
 
     /**

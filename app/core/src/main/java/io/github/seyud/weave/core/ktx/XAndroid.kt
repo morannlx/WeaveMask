@@ -22,6 +22,7 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.core.content.getSystemService
+import io.github.seyud.weave.core.integration.AppIconManager
 import io.github.seyud.weave.core.utils.LocaleSetting
 import io.github.seyud.weave.core.utils.RootUtils
 import io.github.seyud.weave.utils.APKInstall
@@ -134,8 +135,11 @@ fun Context.registerRuntimeReceiver(receiver: BroadcastReceiver, filter: IntentF
 }
 
 fun Context.selfLaunchIntent(): Intent {
-    val pm = packageManager
-    val intent = pm.getLaunchIntentForPackage(packageName)!!
+    val intent = if (AppIconManager.isSupported(this)) {
+        AppIconManager.createMainActivityIntent(this)
+    } else {
+        packageManager.getLaunchIntentForPackage(packageName)!!
+    }
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
     return intent
 }

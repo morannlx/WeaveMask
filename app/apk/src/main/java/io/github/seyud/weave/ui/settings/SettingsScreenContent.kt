@@ -71,6 +71,7 @@ internal fun SettingsScreenContent(
 
         item(key = "customization_section", contentType = "section") {
             CustomizationSettingsSection(
+                viewModel = viewModel,
                 visibility = visibility,
                 onNavigateToAppLanguage = onNavigateToAppLanguage,
                 onAddShortcut = viewModel::addShortcut,

@@ -60,6 +60,7 @@ object Config : PreferenceConfig, DBConfig {
         const val ENABLE_PREDICTIVE_BACK = "enable_predictive_back"
         const val PAGE_SCALE = "page_scale"
         const val HOME_LAYOUT_MODE = "home_layout_mode"
+        const val APP_ICON_VARIANT = "app_icon_variant"
 
         val NO_MIGRATION = setOf(ASKED_HOME, SU_REQUEST_TIMEOUT,
             SU_AUTO_RESPONSE, SU_REAUTH, SU_TAPJACK)
@@ -136,6 +137,7 @@ object Config : PreferenceConfig, DBConfig {
     var enablePredictiveBack by preference(Key.ENABLE_PREDICTIVE_BACK, false)
     var pageScale by preference(Key.PAGE_SCALE, 1.0f)
     var homeLayoutMode by preference(Key.HOME_LAYOUT_MODE, Value.HOME_LAYOUT_CLASSIC)
+    var appIconVariant by preference(Key.APP_ICON_VARIANT, "current")
 
     var enableBlur
         get() = enableBlurPrefs

@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.seyud.weave.core.R as CoreR
 import io.github.seyud.weave.core.download.DownloadEngine
+import io.github.seyud.weave.core.integration.AppIconManager
 import io.github.seyud.weave.core.ktx.getBitmap
 import io.github.seyud.weave.dialog.LocalModuleInstallDialog
 import io.github.seyud.weave.dialog.OnlineModuleInstallDialog
@@ -165,7 +166,9 @@ private fun ModuleShortcutDialog(
     if (!show) return
     val context = LocalContext.current
     val fallbackIcon = remember(context) {
-        runCatching { context.getBitmap(CoreR.drawable.ic_launcher).asImageBitmap() }.getOrNull()
+        runCatching {
+            context.getBitmap(AppIconManager.currentShortcutIconResId(context)).asImageBitmap()
+        }.getOrNull()
     }
 
     OverlayDialog(

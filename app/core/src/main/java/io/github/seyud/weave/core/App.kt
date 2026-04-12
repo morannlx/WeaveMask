@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import io.github.seyud.weave.StubApk
+import io.github.seyud.weave.core.integration.AppIconManager
 import io.github.seyud.weave.core.utils.RootUtils
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
@@ -35,6 +36,7 @@ open class App() : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppIconManager.sync(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             HiddenApiBypass.addHiddenApiExemptions(
                 "Landroid/content/pm/ApplicationInfo;->setEnableOnBackInvokedCallback"
