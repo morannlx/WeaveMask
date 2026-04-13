@@ -36,8 +36,8 @@
             android:name=".ui.MainActivityLauncherCurrent"
             android:enabled="true"
             android:exported="true"
-            android:icon="@drawable/ic_launcher"
-            android:roundIcon="@drawable/ic_launcher_round"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:targetActivity=".ui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -49,8 +49,8 @@
             android:name=".ui.MainActivityLauncherLegacyWeave"
             android:enabled="false"
             android:exported="true"
-            android:icon="@drawable/ic_launcher_legacy_weave_icon"
-            android:roundIcon="@drawable/ic_launcher_legacy_weave_icon"
+            android:icon="@mipmap/ic_launcher_legacy_weave_icon"
+            android:roundIcon="@mipmap/ic_launcher_legacy_weave_icon"
             android:targetActivity=".ui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -62,8 +62,8 @@
             android:name=".ui.MainActivityLauncherLegacyMask"
             android:enabled="false"
             android:exported="true"
-            android:icon="@drawable/ic_launcher_legacy_mask"
-            android:roundIcon="@drawable/ic_launcher_legacy_mask"
+            android:icon="@mipmap/ic_launcher_legacy_mask_icon"
+            android:roundIcon="@mipmap/ic_launcher_legacy_mask_icon"
             android:targetActivity=".ui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -37,22 +37,33 @@ object AppIconManager {
 
     fun currentIconResId(context: Context): Int {
         if (!isSupported(context)) {
-            return R.drawable.ic_launcher
+            return R.mipmap.ic_launcher
         }
         return when (currentVariant()) {
-            AppIconVariant.CURRENT -> R.drawable.ic_launcher
-            AppIconVariant.LEGACY_WEAVE -> R.drawable.ic_launcher_legacy_weave_icon
-            AppIconVariant.LEGACY_MASK -> R.drawable.ic_launcher_legacy_mask
+            AppIconVariant.CURRENT -> R.mipmap.ic_launcher
+            AppIconVariant.LEGACY_WEAVE -> R.mipmap.ic_launcher_legacy_weave_icon
+            AppIconVariant.LEGACY_MASK -> R.mipmap.ic_launcher_legacy_mask_icon
         }
     }
 
     fun currentShortcutIconResId(context: Context): Int {
         if (!isSupported(context)) {
-            return R.drawable.ic_launcher
+            return R.mipmap.ic_launcher
         }
         return when (currentVariant()) {
             AppIconVariant.CURRENT -> R.drawable.ic_launcher_shortcut_current
             AppIconVariant.LEGACY_WEAVE -> R.drawable.ic_launcher_shortcut_legacy_weave
+            AppIconVariant.LEGACY_MASK -> R.drawable.ic_launcher_shortcut_legacy_mask
+        }
+    }
+
+    fun currentShortcutPreviewResId(context: Context): Int {
+        if (!isSupported(context)) {
+            return R.drawable.ic_launcher_preview_current
+        }
+        return when (currentVariant()) {
+            AppIconVariant.CURRENT -> R.drawable.ic_launcher_preview_current
+            AppIconVariant.LEGACY_WEAVE -> R.drawable.ic_launcher_legacy_weave_preview
             AppIconVariant.LEGACY_MASK -> R.drawable.ic_launcher_legacy_mask
         }
     }
