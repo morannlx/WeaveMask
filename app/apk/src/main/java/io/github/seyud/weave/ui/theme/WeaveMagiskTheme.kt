@@ -70,18 +70,11 @@ fun WeaveMagiskTheme(
         else -> ThemeController(ColorSchemeMode.System)
     }
     CompositionLocalProvider(LocalIsMonetTheme provides isMonetTheme) {
-        if (effectiveSystemMonetColors != null) {
-            MiuixTheme(
-                colors = effectiveSystemMonetColors,
-                smoothRounding = enableSmoothCorner,
-                content = content
-            )
-        } else {
-            MiuixTheme(
-                controller = controller,
-                smoothRounding = enableSmoothCorner,
-                content = content
-            )
-        }
+        val rawColors = effectiveSystemMonetColors ?: controller.currentColors()
+        MiuixTheme(
+            colors = rawColors,
+            smoothRounding = enableSmoothCorner,
+            content = content
+        )
     }
 }
